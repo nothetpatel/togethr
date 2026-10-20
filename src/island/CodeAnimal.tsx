@@ -414,7 +414,7 @@ export function CodeAnimal({
           <Snout animal={animal} hr={hr} />
           <Face animal={animal} hr={hr} eyesRef={eyes} />
           {animal === 'panda' && (
-            <group ref={bamboo} position={[0.18 * hr, -0.45 * hr, 1.0 * hr]} visible={false}>
+            <group ref={bamboo} position={[0.18 * hr, -0.45 * hr, 1.0 * hr]} rotation={[-0.5, 0, 0]} visible={false}>
               {[0, 1, 2].map((i) => (
                 <Part key={i} color={i % 2 ? '#86c45a' : '#7ab84f'} position={[0, i * 0.11, 0]}>
                   <cylinderGeometry args={[0.022, 0.024, 0.1, 8]} />

@@ -394,9 +394,10 @@ def _look(cam, loc, target):
     cam.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
-def render_previews(animal: str, height: float = 1.25, views=("front", "side", "three_quarter")) -> str:
-    """Render front / side / three-quarter views and stitch them into
-    art/previews/<animal>/<animal>.png (plus the single views)."""
+def render_previews(animal: str, height: float = 1.25, views=("front", "side", "three_quarter"), face_z: float = 0.72) -> str:
+    """Render front / side / three-quarter views (and "face", a close-up of the
+    face at height `face_z`) and stitch them into art/previews/<animal>/<animal>.png
+    (plus the single views)."""
     import numpy as np
 
     scene = bpy.context.scene
@@ -414,14 +415,15 @@ def render_previews(animal: str, height: float = 1.25, views=("front", "side", "
         "side": ((6, 0, mid), "ORTHO"),
         "three_quarter": ((1.75, -2.1, mid + 0.95), "PERSP"),
         "back": ((-1.6, 2.2, mid + 0.8), "PERSP"),
+        "face": ((0, -6, face_z), "ORTHO"),
     }
     paths = []
     for view in views:
         loc, kind = setups[view]
         cam.data.type = kind
-        cam.data.ortho_scale = height * 1.25
+        cam.data.ortho_scale = 0.5 if view == "face" else height * 1.25
         cam.data.lens = 50
-        _look(cam, loc, (0, 0, mid * (0.75 if kind == "PERSP" else 1)))
+        _look(cam, loc, (0, 0, face_z if view == "face" else mid * (0.75 if kind == "PERSP" else 1)))
         path = out / f"{view}.png"
         scene.render.filepath = str(path)
         bpy.ops.render.render(write_still=True)

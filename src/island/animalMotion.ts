@@ -50,6 +50,11 @@ function rest(o: THREE.Object3D): THREE.Vector3 {
   return (o.userData.rest ??= o.position.clone()) as THREE.Vector3;
 }
 
+/** How a part started out turned (about x), remembered on first use. */
+function restTurn(o: THREE.Object3D): number {
+  return (o.userData.restTurn ??= o.rotation.x) as number;
+}
+
 export function useAnimalMotion(animal: Animal, motion: RefObject<Motion>, rig: () => Rig) {
   const isTurtle = animal === 'turtle';
   const isDuck = animal === 'duck';
@@ -109,17 +114,19 @@ export function useAnimalMotion(animal: Animal, motion: RefObject<Motion>, rig: 
       if (!leg) return;
       // Front legs stay planted; hind legs fold forward under the body.
       const fold = isTurtle || isDuck ? 0 : i < 2 ? 0.3 : -1.25;
-      // Sitting up: front paws hang down in front of the belly, hind legs lie
-      // flat out in front (angles are relative to the tipped-back body).
-      const uprightFold = i < 2 ? UPRIGHT_TILT - 0.3 : UPRIGHT_TILT - Math.PI / 2;
+      // Sitting up: front paws come up in front of the tummy (holding the
+      // bamboo, for a panda), hind legs lie flat out in front (angles are
+      // relative to the tipped-back body).
+      const uprightFold = i < 2 ? -UPRIGHT_TILT : UPRIGHT_TILT - Math.PI / 2;
       leg.rotation.x = Math.sin(ph + LEG_PHASE[i]) * 0.75 * s + fold * sit + uprightFold * u;
     });
-    // Panda snack: bamboo appears while sitting up and goes to the mouth every few seconds.
+    // Panda snack: bamboo appears while sitting up and is lifted to the
+    // mouth every few seconds.
     if (bamboo) {
       bamboo.visible = u > 0.05;
       bamboo.scale.setScalar(Math.max(0.001, u));
       const munch = Math.max(0, Math.sin(t * 1.1));
-      bamboo.rotation.x = -0.5 - 0.35 * munch;
+      bamboo.rotation.x = restTurn(bamboo) - 0.3 * munch;
       bamboo.position.y = rest(bamboo).y + 0.08 * munch;
     }
     if (tail) tail.rotation.y = Math.sin(t * (3 + 9 * s)) * (0.35 + 0.25 * s);

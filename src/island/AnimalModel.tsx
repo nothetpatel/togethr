@@ -49,6 +49,7 @@ function BlenderAnimal({ animal, accent, motion }: { animal: Animal; accent: str
     });
     return copy;
   }, [scene]);
+  const outer = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
   const rig = useMemo<Omit<Rig, 'bob'>>(() => {
     const part = (name: string) => model.getObjectByName(name) ?? null;
@@ -63,24 +64,30 @@ function BlenderAnimal({ animal, accent, motion }: { animal: Animal; accent: str
   }, [model]);
   const scarf = useMemo(() => model.getObjectByName('scarf'), [model]);
 
+  // The bamboo is modelled where the paws hold it once sitting up, so it
+  // stays out of the body's sitting tilt.
   useLayoutEffect(() => {
-    if (rig.bamboo) rig.bamboo.visible = false;
+    if (!rig.bamboo) return;
+    rig.bamboo.visible = false;
+    outer.current?.add(rig.bamboo);
   }, [rig]);
 
   useAnimalMotion(animal, motion, () => ({ ...rig, bob: bob.current }));
 
   return (
-    <group ref={bob}>
-      <primitive object={model} />
-      {scarf &&
-        createPortal(
-          // A unit ring lying flat; the scarf node sizes and places it.
-          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <torusGeometry args={[1, 0.29, 10, 32]} />
-            <meshStandardMaterial color={accent} roughness={0.7} />
-          </mesh>,
-          scarf,
-        )}
+    <group ref={outer}>
+      <group ref={bob}>
+        <primitive object={model} />
+        {scarf &&
+          createPortal(
+            // A unit ring lying flat; the scarf node sizes and places it.
+            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <torusGeometry args={[1, 0.29, 10, 32]} />
+              <meshStandardMaterial color={accent} roughness={0.7} />
+            </mesh>,
+            scarf,
+          )}
+      </group>
     </group>
   );
 }
