@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useRoomTimer, type RoomTimer } from '../hooks/useRoomTimer';
 import { chime, isMuted, setMuted } from '../lib/chime';
+import { BellIcon, ResetIcon, SettingsIcon, SkipIcon } from './icons';
 import { formatClock } from '../lib/timer';
 import type { TimerPhase } from '../shared/types';
 
@@ -71,7 +72,7 @@ export function PomodoroPanel({
           aria-pressed={muted}
           title={muted ? 'Chime off' : 'Chime on'}
         >
-          {muted ? '🔕' : '🔔'}
+          <BellIcon off={muted} />
         </button>
       </div>
 
@@ -85,10 +86,10 @@ export function PomodoroPanel({
             {running ? 'Pause' : timer.status === 'paused' ? 'Resume' : 'Start'}
           </button>
           <button onClick={() => control('reset')} aria-label="Reset timer" title="Reset">
-            ↺
+            <ResetIcon />
           </button>
           <button onClick={() => control('skip')} aria-label="Skip to next phase" title="Skip">
-            ⏭
+            <SkipIcon />
           </button>
           <button
             onClick={() => setSettingsOpen((o) => !o)}
@@ -96,7 +97,7 @@ export function PomodoroPanel({
             aria-expanded={settingsOpen}
             title="Settings"
           >
-            ⚙
+            <SettingsIcon />
           </button>
         </div>
       ) : (

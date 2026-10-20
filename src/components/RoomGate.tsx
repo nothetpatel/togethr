@@ -72,6 +72,7 @@ export function RoomGate({
             placeholder="ABCD"
             aria-label="Room code"
             autoCapitalize="characters"
+            autoCorrect="off"
             autoComplete="off"
             spellCheck={false}
             inputMode="text"

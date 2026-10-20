@@ -95,6 +95,8 @@ input {
   border-radius: 12px;
   background: #fff;
   outline: none;
+  /* iPhone Safari zooms the page into any text box under 16px. */
+  font-size: 16px;
 }
 
 input:focus {
@@ -193,7 +195,8 @@ input:focus {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   pointer-events: none;
 }
 
@@ -345,8 +348,8 @@ input:focus {
 
 .hud-top {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
   right: 332px;
   display: flex;
   align-items: flex-start;
@@ -425,8 +428,8 @@ input:focus {
 
 .todo-panel {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
   width: 300px;
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
@@ -590,9 +593,9 @@ button.icon:focus-visible {
 @media (max-width: 900px) {
   .todo-panel {
     top: auto;
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
     width: auto;
     padding: 0;
   }
@@ -654,8 +657,14 @@ button.icon:focus-visible {
 }
 
 .timer-head button.mute {
-  font-size: 14px;
-  opacity: 0.8;
+  display: grid;
+  padding: 2px;
+  opacity: 0.7;
+}
+
+.timer-head button.mute svg {
+  width: 15px;
+  height: 15px;
 }
 
 .timer-dots {
@@ -694,7 +703,14 @@ button.icon:focus-visible {
 }
 
 .timer-controls button:not(.primary) {
-  padding: 8px 11px;
+  display: grid;
+  place-items: center;
+  padding: 8px 10px;
+}
+
+.timer-controls svg {
+  width: 16px;
+  height: 16px;
 }
 
 .timer-settings {
@@ -726,7 +742,7 @@ button.icon:focus-visible {
 
 @media (max-width: 900px) {
   .hud-top {
-    right: 16px;
+    right: max(16px, env(safe-area-inset-right));
     flex-direction: column;
     align-items: stretch;
     gap: 10px;

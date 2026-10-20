@@ -63,7 +63,12 @@ export function AvatarCreator({
             onChange={(e) => setNickname(e.target.value)}
             maxLength={24}
             placeholder="e.g. Het"
-            autoFocus={mode === 'create'}
+            // No auto-focus on touch screens: it pops the keyboard over everything.
+            autoFocus={mode === 'create' && !matchMedia('(pointer: coarse)').matches}
+            autoComplete="nickname"
+            autoCorrect="off"
+            autoCapitalize="words"
+            spellCheck={false}
           />
         </label>
 

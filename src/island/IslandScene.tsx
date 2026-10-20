@@ -11,6 +11,7 @@ import { LocalPlayer, TapMarker, type PlayerState } from './LocalPlayer';
 import { walkTarget } from './movement';
 import type { RemoteState } from './remote';
 import { RemotePlayer } from './RemotePlayer';
+import { isWebKit } from './device';
 import { COAST_RADIUS, terrainGeometry, terrainHeight } from './terrain';
 import { Water } from './Water';
 
@@ -37,6 +38,9 @@ const SHOW_GALLERY = import.meta.env.DEV && new URLSearchParams(location.search)
 
 /** Taps that move less than this many pixels count as taps, not camera drags. */
 const TAP_SLOP = 8;
+
+/** Soft shadows, except where WebKit renders them wrongly (see device.ts). */
+const SHADOW_MODE = isWebKit() ? ('basic' as const) : true;
 
 /** Distance from the camera to what it looks at, on a landscape screen. */
 const BASE_DISTANCE = Math.hypot(9, 9, 11);
@@ -111,7 +115,7 @@ export function IslandScene({
   return (
     <Canvas
       className="scene"
-      shadows
+      shadows={SHADOW_MODE}
       dpr={[1, 2]}
       gl={{ alpha: true, antialias: true }}
       camera={{ position: [9, 9, 11], fov: 40 }}
