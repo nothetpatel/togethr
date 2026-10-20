@@ -57,10 +57,15 @@ export interface TimerState {
   updated_at: string;
 }
 
-/** Ephemeral position broadcast on the room's realtime channel (not stored). */
-export interface PositionUpdate {
-  player_id: string;
+/**
+ * Ephemeral position broadcast on the room's private realtime channel (not
+ * stored). Sent when you tap somewhere new, plus a heartbeat.
+ */
+export interface PositionMessage {
+  id: string; // player id
   x: number;
   z: number;
-  t: number; // sender's ms timestamp, for interpolation ordering
+  h: number; // heading, radians
+  tx: number | null; // walking target, or null when standing
+  tz: number | null;
 }

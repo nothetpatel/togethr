@@ -325,6 +325,23 @@ input:focus {
   gap: 8px;
 }
 
+.members .presence {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #c9c1d3;
+}
+
+.members li.online .presence {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px rgba(92, 184, 138, 0.2);
+}
+
+.members li.away {
+  opacity: 0.6;
+}
+
 .members .emoji {
   font-size: 20px;
 }

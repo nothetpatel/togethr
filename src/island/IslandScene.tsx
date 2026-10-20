@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, type RefObject } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { Avatar } from '../shared/types';
@@ -8,17 +8,25 @@ import { Plant } from './Foliage';
 import { BUSHES, OBSTACLES, TREE_SPOTS, TREES } from './layout';
 import { LocalPlayer, TapMarker, type PlayerState } from './LocalPlayer';
 import { walkTarget } from './movement';
+import type { RemoteState } from './remote';
+import { RemotePlayer } from './RemotePlayer';
 import { COAST_RADIUS, terrainGeometry, terrainHeight } from './terrain';
 import { Water } from './Water';
 
 // The island: rolling terrain (terrain.ts), procedural plants (Foliage.tsx),
-// flowers (Flowers.tsx), sea (Water.tsx), and your animal (LocalPlayer.tsx),
-// which walks wherever you tap.
+// flowers (Flowers.tsx), sea (Water.tsx), your animal (LocalPlayer.tsx),
+// which walks wherever you tap, and everyone else's (RemotePlayer.tsx).
 
 export interface IslandPlayer {
   avatar: Avatar;
   /** Shown above the animal; null hides the name tag. */
   nickname: string | null;
+}
+
+export interface IslandOther {
+  id: string;
+  avatar: Avatar;
+  nickname: string;
 }
 
 const SHOW_GALLERY = import.meta.env.DEV && new URLSearchParams(location.search).has('gallery');
@@ -48,16 +56,26 @@ function Terrain({ onTap }: { onTap: (x: number, z: number) => void }) {
   );
 }
 
-export function IslandScene({ player }: { player: IslandPlayer | null }) {
-  const state = useRef<PlayerState>(
-    (() => {
-      const [x, z] = walkTarget([0.4, 0.6], OBSTACLES);
-      return { x, z, heading: 0.6, target: null };
-    })(),
-  );
-
+export function IslandScene({
+  player,
+  state,
+  onMove,
+  others = [],
+  remotes,
+}: {
+  player: IslandPlayer | null;
+  /** Your animal's position, owned by the app so it can be broadcast. */
+  state: RefObject<PlayerState>;
+  /** Called after you tap somewhere new. */
+  onMove?: () => void;
+  /** Other people in the room, and their live positions. */
+  others?: IslandOther[];
+  remotes?: RefObject<Map<string, RemoteState>>;
+}) {
   function moveTo(x: number, z: number) {
-    if (player) state.current.target = walkTarget([x, z], OBSTACLES);
+    if (!player) return;
+    state.current.target = walkTarget([x, z], OBSTACLES);
+    onMove?.();
   }
 
   return (
@@ -100,6 +118,10 @@ export function IslandScene({ player }: { player: IslandPlayer | null }) {
           <TapMarker state={state} />
         </>
       )}
+      {remotes &&
+        others.map((o) => (
+          <RemotePlayer key={o.id} id={o.id} avatar={o.avatar} nickname={o.nickname} remotes={remotes} />
+        ))}
 
       <OrbitControls
         makeDefault

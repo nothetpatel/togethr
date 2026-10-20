@@ -87,6 +87,28 @@ check('guest sees the running timer', timer.data?.status === 'running' && !!time
 const now = await guest.client.rpc('server_now');
 check('server_now works', !now.error && !Number.isNaN(Date.parse(now.data)), now.error?.message);
 
+// Private live channel: members can join `room:<id>`, strangers can't.
+async function joinChannel(client) {
+  await client.realtime.setAuth();
+  const channel = client.channel(`room:${room.id}`, { config: { private: true } });
+  const status = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve('TIMED_OUT'), 8000);
+    channel.subscribe((s) => {
+      if (s === 'SUBSCRIBED' || s === 'CHANNEL_ERROR') {
+        clearTimeout(timer);
+        resolve(s);
+      }
+    });
+  });
+  await client.removeChannel(channel);
+  return status;
+}
+const memberJoin = await joinChannel(guest.client);
+check('member can join the room’s live channel', memberJoin === 'SUBSCRIBED', memberJoin);
+const outsider = await player('smoke-outsider', 'koala');
+const outsiderJoin = await joinChannel(outsider.client);
+check('non-member cannot join the room’s live channel', outsiderJoin === 'CHANNEL_ERROR', outsiderJoin);
+
 // Logged-out visitors get nothing
 const stranger = newClient();
 const strangerRoom = await stranger.rpc('create_room');

@@ -25,6 +25,31 @@ test('owner creates a room, guest joins by code, both see each other', async ({ 
   await expect(guest.locator('.members li', { hasText: 'E2E Owner' })).toContainText('owner');
   await expect(owner.locator('.members li', { hasText: 'E2E Owner' })).toContainText('(you)');
 
+  // Both show as online.
+  await expect(owner.locator('.members li.online')).toHaveCount(2);
+  await expect(guest.locator('.members li.online')).toHaveCount(2);
+
+  // The owner hears where the guest's animal is...
+  const guestOnOwnerScreen = () =>
+    owner.evaluate(() => {
+      const remotes = (window as unknown as { __togethrRemotes?: Map<string, { simX: number; simZ: number }> })
+        .__togethrRemotes;
+      const r = remotes && [...remotes.values()][0];
+      return r ? [r.simX, r.simZ] : null;
+    });
+  await expect.poll(guestOnOwnerScreen).not.toBeNull();
+  const before = (await guestOnOwnerScreen())!;
+
+  // ...and sees it walk after the guest taps somewhere.
+  const box = (await guest.locator('canvas').boundingBox())!;
+  await guest.mouse.click(box.x + box.width * 0.62, box.y + box.height * 0.78);
+  await expect
+    .poll(async () => {
+      const now = await guestOnOwnerScreen();
+      return now ? Math.hypot(now[0] - before[0], now[1] - before[1]) : 0;
+    })
+    .toBeGreaterThan(0.5);
+
   // Refreshing keeps you in the room.
   await guest.reload();
   await expect(guest.getByTestId('room-code')).toHaveText(code);

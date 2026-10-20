@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { Avatar } from '../shared/types';
 import { AnimalModel, nameTagHeight, type Motion } from './AnimalModel';
 import { OBSTACLES } from './layout';
-import { stepTowards, turnTowards, WALK_SPEED, type Point } from './movement';
+import { stepTowards, turnTowards, walkTarget, WALK_SPEED, type Point } from './movement';
 import { terrainHeight } from './terrain';
 
 /** Where your animal is and where it's heading. Mutable, read every frame. */
@@ -15,6 +15,15 @@ export interface PlayerState {
   /** Facing angle in radians (0 = +z). */
   heading: number;
   target: Point | null;
+}
+
+/** A starting spot near the middle, different for each player so nobody stacks up. */
+export function spawnState(playerId: string | null): PlayerState {
+  let hash = 0;
+  for (const ch of playerId ?? '') hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+  const angle = ((hash >>> 0) % 360) * (Math.PI / 180);
+  const [x, z] = walkTarget([Math.cos(angle) * 1.4, Math.sin(angle) * 1.4], OBSTACLES);
+  return { x, z, heading: angle + Math.PI, target: null }; // facing the middle
 }
 
 const TURN_SPEED = 10; // radians per second

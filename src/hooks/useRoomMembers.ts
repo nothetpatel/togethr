@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchMembers, type MemberWithProfile } from '../lib/rooms';
 
-/** Live member list: refetches whenever someone joins or leaves the room. */
-export function useRoomMembers(client: SupabaseClient, roomId: string): MemberWithProfile[] {
+/** Live member list: refetches whenever someone joins or leaves the room. Empty while not in a room. */
+export function useRoomMembers(client: SupabaseClient | null, roomId: string | null): MemberWithProfile[] {
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
 
   useEffect(() => {
+    if (!client || !roomId) {
+      setMembers([]);
+      return;
+    }
     let cancelled = false;
     const refresh = () =>
       fetchMembers(client, roomId)

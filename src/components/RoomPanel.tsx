@@ -1,22 +1,22 @@
 import { useState } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { useRoomMembers } from '../hooks/useRoomMembers';
+import type { MemberWithProfile } from '../lib/rooms';
 import { ANIMAL_EMOJI } from '../shared/animals';
 import type { Player, Room } from '../shared/types';
 
 // Top-left card while in a room: the shareable code and who's here.
 export function RoomPanel({
-  client,
   room,
   me,
+  members,
+  onlineIds,
   onLeave,
 }: {
-  client: SupabaseClient;
   room: Room;
   me: Player;
+  members: MemberWithProfile[];
+  onlineIds: string[];
   onLeave: () => void;
 }) {
-  const members = useRoomMembers(client, room.id);
   const [copied, setCopied] = useState(false);
   const isOwner = room.owner_id === me.id;
 
@@ -47,7 +47,8 @@ export function RoomPanel({
       </p>
       <ul className="members">
         {members.map((m) => (
-          <li key={m.player_id}>
+          <li key={m.player_id} className={onlineIds.includes(m.player_id) ? 'online' : 'away'}>
+            <span className="presence" title={onlineIds.includes(m.player_id) ? 'Online' : 'Away'} />
             <span className="emoji">{ANIMAL_EMOJI[m.avatar.animal] ?? '🐾'}</span>
             <span className="name">
               {m.nickname}
