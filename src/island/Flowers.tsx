@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 import { Instance, Instances } from '@react-three/drei';
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { seededRandom } from './random';
 
 // Tulips, roses and little daisies in patches around the island. Each part
-// (stems, tulip cups, rose buds, daisy petals, daisy centres) is one instanced
-// mesh, so hundreds of flowers cost five draw calls.
+// (stems, leaves, tulip cups, rose heads, daisy petals, daisy centres) is one
+// instanced mesh, so hundreds of flowers cost a handful of draw calls.
 
 type Kind = 'tulip' | 'rose' | 'daisy';
 
@@ -17,29 +20,86 @@ interface Flower {
 }
 
 const PALETTE: Record<Kind, string[]> = {
-  tulip: ['#ff6b8b', '#ff9f43', '#ffd166', '#c77dff', '#ff4d6d'],
-  rose: ['#e63946', '#ff5d8f', '#ffb3c6'],
-  daisy: ['#ffffff', '#bde0fe', '#e0c3fc', '#fff3b0'],
+  tulip: ['#ff5c7a', '#ff8f3c', '#ffc94a', '#b56cf0', '#e8304f', '#ffffff'],
+  rose: ['#d7263d', '#f2557f', '#ffadc4', '#b0182e'],
+  daisy: ['#ffffff', '#f4f0ff', '#d9e8ff', '#fff6cf'],
 };
 
-const STEM_HEIGHT: Record<Kind, number> = { tulip: 0.3, rose: 0.22, daisy: 0.12 };
+const STEM_HEIGHT: Record<Kind, number> = { tulip: 0.3, rose: 0.24, daisy: 0.13 };
 
-/** Small seeded PRNG so the island looks the same for everyone. */
-function mulberry32(seed: number) {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+// ───────────── Shapes ─────────────
+
+/** Spins a side profile into a cup, then shapes lobes (petals) into its rim. */
+function cup(profile: [number, number][], lobes: number, lobeDepth: number, tipLift: number, offset = 0) {
+  const g = new THREE.LatheGeometry(
+    profile.map(([x, y]) => new THREE.Vector2(x, y)),
+    24,
+  );
+  const height = profile[profile.length - 1][1];
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const k = y / height;
+    const wave = Math.cos(Math.atan2(z, x) * lobes + offset);
+    const f = 1 + lobeDepth * wave * k;
+    pos.setXYZ(i, x * f, y + tipLift * wave * k * k, z * f);
+  }
+  g.computeVertexNormals();
+  return g;
 }
+
+const tulipHead = cup(
+  [[0, 0], [0.025, 0.006], [0.046, 0.03], [0.056, 0.065], [0.05, 0.105], [0.04, 0.135]],
+  3,
+  0.14,
+  0.018,
+);
+
+const roseHead = mergeGeometries([
+  // Tight bud in the middle.
+  cup([[0, 0], [0.02, 0.01], [0.028, 0.035], [0.02, 0.055], [0.004, 0.062]], 3, 0.1, 0.004),
+  // Two looser rings of petals, offset so their lobes don't line up.
+  cup([[0, 0], [0.03, 0.006], [0.046, 0.022], [0.052, 0.045]], 5, 0.14, 0.008, 0.6),
+  cup([[0, 0], [0.04, 0.004], [0.06, 0.015], [0.07, 0.032]], 5, 0.16, 0.01, 1.9),
+])!;
+
+const daisyPetals = mergeGeometries(
+  Array.from({ length: 12 }, (_, i) => {
+    const petal = new THREE.CircleGeometry(1, 8);
+    petal.rotateX(-Math.PI / 2);
+    petal.scale(0.045, 1, 0.013);
+    petal.translate(0.045, 0, 0);
+    petal.rotateZ(0.18); // tips curl up a little
+    petal.rotateY((i / 12) * Math.PI * 2);
+    return petal;
+  }),
+)!;
+
+const daisyCentre = new THREE.SphereGeometry(0.022, 12, 6).scale(1, 0.55, 1);
+
+/** A narrow leaf that grows up from its base and arches outward. */
+const leaf = (() => {
+  const g = new THREE.PlaneGeometry(0.04, 0.2, 1, 8);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getY(i) + 0.1) / 0.2; // 0 at base, 1 at tip
+    const width = Math.sin(Math.PI * (0.12 + 0.88 * t)) * (1 - t * 0.35);
+    pos.setXYZ(i, pos.getX(i) * width, t * 0.2, t * t * 0.08);
+  }
+  g.computeVertexNormals();
+  return g;
+})();
+
+// ───────────── Placement ─────────────
 
 /**
  * Places flower patches in a ring between the open middle (kept clear for
  * walking) and the beach, skipping spots too close to trees.
  */
 export function scatterFlowers(avoid: [number, number][], seed = 7): Flower[] {
-  const rand = mulberry32(seed);
+  const rand = seededRandom(seed);
   const pick = <T,>(items: T[]) => items[Math.floor(rand() * items.length)];
   const flowers: Flower[] = [];
   const add = (kind: Kind, x: number, z: number) => {
@@ -71,6 +131,8 @@ export function scatterFlowers(avoid: [number, number][], seed = 7): Flower[] {
   return flowers;
 }
 
+// ───────────── Rendering ─────────────
+
 export function Flowers({ avoid }: { avoid: [number, number][] }) {
   const flowers = useMemo(() => scatterFlowers(avoid), [avoid]);
   const tulips = flowers.filter((f) => f.kind === 'tulip');
@@ -78,47 +140,53 @@ export function Flowers({ avoid }: { avoid: [number, number][] }) {
   const daisies = flowers.filter((f) => f.kind === 'daisy');
   const top = (f: Flower) => STEM_HEIGHT[f.kind] * f.scale;
 
+  // Tulips get two long leaves, roses one small one partway up the stem.
+  const leaves = [
+    ...tulips.flatMap((f) => [0, Math.PI].map((side) => ({ f, y: 0, turn: f.turn + side, size: f.scale }))),
+    ...roses.map((f) => ({ f, y: top(f) * 0.4, turn: f.turn, size: f.scale * 0.5 })),
+  ];
+
   return (
     <group>
       <Instances limit={flowers.length}>
-        <cylinderGeometry args={[0.012, 0.014, 1, 4]} />
-        <meshStandardMaterial color="#4f9d5d" />
+        <cylinderGeometry args={[0.01, 0.013, 1, 5]} />
+        <meshStandardMaterial color="#3f8a4a" roughness={0.8} />
         {flowers.map((f, i) => (
           <Instance key={i} position={[f.x, top(f) / 2, f.z]} scale={[1, top(f), 1]} />
         ))}
       </Instances>
 
-      {/* Tulips: a cup that's wider at the top */}
-      <Instances limit={Math.max(1, tulips.length)}>
-        <cylinderGeometry args={[0.065, 0.035, 0.12, 6]} />
-        <meshStandardMaterial flatShading />
+      <Instances limit={Math.max(1, leaves.length)} geometry={leaf}>
+        <meshStandardMaterial color="#4f9b52" roughness={0.75} side={THREE.DoubleSide} />
+        {leaves.map(({ f, y, turn, size }, i) => (
+          <Instance key={i} position={[f.x, y, f.z]} rotation={[0, turn, 0]} scale={size} />
+        ))}
+      </Instances>
+
+      <Instances limit={Math.max(1, tulips.length)} geometry={tulipHead}>
+        <meshStandardMaterial roughness={0.5} side={THREE.DoubleSide} />
         {tulips.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f) + 0.05 * f.scale, f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
+          <Instance key={i} position={[f.x, top(f) - 0.01, f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
         ))}
       </Instances>
 
-      {/* Roses: a faceted bud */}
-      <Instances limit={Math.max(1, roses.length)}>
-        <dodecahedronGeometry args={[0.06, 0]} />
-        <meshStandardMaterial flatShading />
+      <Instances limit={Math.max(1, roses.length)} geometry={roseHead}>
+        <meshStandardMaterial roughness={0.55} side={THREE.DoubleSide} />
         {roses.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f) + 0.04 * f.scale, f.z]} rotation={[f.turn, f.turn, 0]} scale={f.scale} color={f.color} />
+          <Instance key={i} position={[f.x, top(f) - 0.005, f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
         ))}
       </Instances>
 
-      {/* Daisies: a flat ring of petals with a yellow centre */}
-      <Instances limit={Math.max(1, daisies.length)}>
-        <cylinderGeometry args={[0.06, 0.06, 0.012, 7]} />
-        <meshStandardMaterial flatShading />
+      <Instances limit={Math.max(1, daisies.length)} geometry={daisyPetals}>
+        <meshStandardMaterial roughness={0.6} side={THREE.DoubleSide} />
         {daisies.map((f, i) => (
           <Instance key={i} position={[f.x, top(f), f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
         ))}
       </Instances>
-      <Instances limit={Math.max(1, daisies.length)}>
-        <sphereGeometry args={[0.024, 6, 4]} />
-        <meshStandardMaterial color="#ffc93c" />
+      <Instances limit={Math.max(1, daisies.length)} geometry={daisyCentre}>
+        <meshStandardMaterial color="#f2b705" roughness={0.7} />
         {daisies.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f) + 0.01, f.z]} scale={f.scale} />
+          <Instance key={i} position={[f.x, top(f) + 0.004, f.z]} scale={f.scale} />
         ))}
       </Instances>
     </group>
