@@ -145,6 +145,19 @@ input:focus {
   white-space: nowrap;
 }
 
+/* Floating name above your animal */
+
+.name-tag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 8px rgba(61, 51, 80, 0.18);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  user-select: none;
+}
+
 /* Status (offline / connecting / error) */
 
 .status-card {

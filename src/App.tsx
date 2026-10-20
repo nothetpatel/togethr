@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { IslandScene } from './island/IslandScene';
+import { IslandScene, type IslandPlayer } from './island/IslandScene';
 import { ProfileSetup } from './components/ProfileSetup';
 import { RoomGate } from './components/RoomGate';
 import { RoomPanel } from './components/RoomPanel';
@@ -52,9 +52,16 @@ export function App() {
     setStage({ kind: 'lobby', player });
   }
 
+  // Your animal shows once you have a profile; the name tag only in a room.
+  const me = stage.kind === 'lobby' || stage.kind === 'room' ? stage.player : null;
+  const islandPlayer = useMemo<IslandPlayer | null>(
+    () => (me ? { avatar: me.avatar, nickname: stage.kind === 'room' ? me.nickname : null } : null),
+    [me, stage.kind],
+  );
+
   return (
     <div className="app">
-      <IslandScene />
+      <IslandScene player={islandPlayer} />
 
       {(stage.kind === 'offline' || stage.kind === 'connecting' || stage.kind === 'error') && (
         <div className="card status-card">
