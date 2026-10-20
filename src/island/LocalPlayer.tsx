@@ -4,7 +4,7 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Avatar } from '../shared/types';
 import { AnimalModel, nameTagHeight, type Motion } from './AnimalModel';
-import { OBSTACLES } from './layout';
+import { OBSTACLES, type Obstacle } from './layout';
 import { stepTowards, turnTowards, walkTarget, WALK_SPEED, type Point } from './movement';
 import { terrainHeight } from './terrain';
 
@@ -34,12 +34,17 @@ export function LocalPlayer({
   avatar,
   nickname,
   badge,
+  goal,
   state,
+  obstacles = OBSTACLES,
 }: {
   avatar: Avatar;
   nickname: string | null;
   badge?: string;
+  goal?: string;
   state: RefObject<PlayerState>;
+  /** What to walk around: the island's trees plus anything built. */
+  obstacles?: Obstacle[];
 }) {
   const group = useRef<THREE.Group>(null);
   const motion = useRef<Motion>({ speed: 0 });
@@ -54,7 +59,7 @@ export function LocalPlayer({
     let moving = false;
 
     if (st.target) {
-      const { pos, arrived } = stepTowards([st.x, st.z], st.target, dt, OBSTACLES);
+      const { pos, arrived } = stepTowards([st.x, st.z], st.target, dt, obstacles);
       const dx = pos[0] - st.x;
       const dz = pos[1] - st.z;
       const moved = Math.hypot(dx, dz);
@@ -93,9 +98,12 @@ export function LocalPlayer({
       <AnimalModel animal={avatar.animal} accent={avatar.color} motion={motion} />
       {nickname && (
         <Html position={[0, nameTagHeight(avatar.animal), 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="name-tag">
-            {nickname}
-            {badge && <span className="tag-badge">{badge}</span>}
+          <div className="tag-stack">
+            {goal && <div className="goal-bubble">🎯 {goal}</div>}
+            <div className="name-tag">
+              {nickname}
+              {badge && <span className="tag-badge">{badge}</span>}
+            </div>
           </div>
         </Html>
       )}

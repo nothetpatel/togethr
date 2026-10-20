@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { useRoomTimer, type RoomTimer } from '../hooks/useRoomTimer';
-import { chime, isMuted, setMuted } from '../lib/chime';
+import type { RoomTimer } from '../hooks/useRoomTimer';
+import { isMuted, setMuted } from '../lib/chime';
 import { BellIcon, ResetIcon, SettingsIcon, SkipIcon } from './icons';
 import { formatClock } from '../lib/timer';
 import type { TimerPhase } from '../shared/types';
@@ -17,16 +16,7 @@ const SET_SIZE = 4;
 
 // The room's shared Pomodoro timer. Everyone sees the same countdown; only
 // the owner gets the controls.
-export function PomodoroPanel({
-  client,
-  roomId,
-  isOwner,
-}: {
-  client: SupabaseClient;
-  roomId: string;
-  isOwner: boolean;
-}) {
-  const room = useRoomTimer(client, roomId, chime);
+export function PomodoroPanel({ room, isOwner }: { room: RoomTimer; isOwner: boolean }) {
   const { timer, remaining, control, error } = room;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [muted, setMutedState] = useState(isMuted);

@@ -1,3 +1,5 @@
+import type { ItemKind } from './catalog';
+
 // Shapes shared by the client and the Supabase schema
 // (supabase/migrations/0001_init.sql). Keep the two in sync.
 
@@ -22,6 +24,9 @@ export interface Room {
   owner_id: string;
   created_at: string;
   last_active_at: string;
+  /** Seeds in the shared jar, and all seeds ever earned (sets the level). */
+  seeds: number;
+  seeds_earned: number;
 }
 
 export interface RoomMember {
@@ -54,7 +59,35 @@ export interface TimerState {
   focus_ms: number;
   short_break_ms: number;
   long_break_ms: number;
+  /** New for each focus round; check-ins belong to one. */
+  session_id: string;
   updated_at: string;
+}
+
+/** Something built on a room's island (migration 0004). */
+export interface RoomItem {
+  id: string;
+  room_id: string;
+  kind: ItemKind;
+  x: number;
+  z: number;
+  rotation: number;
+  placed_by: string | null;
+  created_at: string;
+}
+
+/** Someone's goal for one focus round, and how it went. */
+export interface SessionCheckin {
+  id: string;
+  room_id: string;
+  session_id: string;
+  player_id: string;
+  goal: string;
+  todo_id: string | null;
+  outcome: 'done' | 'partly' | 'not' | null;
+  /** Set when the round finishes; 0 until then. */
+  seeds_awarded: number;
+  created_at: string;
 }
 
 /**

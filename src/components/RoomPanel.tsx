@@ -1,14 +1,64 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { RoomIsland } from '../hooks/useRoomIsland';
 import type { MemberWithProfile } from '../lib/rooms';
 import { ANIMAL_EMOJI } from '../shared/animals';
 import type { Player, Room } from '../shared/types';
 
-// Top-left card while in a room: the shareable code and who's here.
+/** The room's seed jar and island level, with a "+38" pop when seeds arrive. */
+function SeedJar({ island, onBuild }: { island: RoomIsland; onBuild: () => void }) {
+  const [gain, setGain] = useState<number | null>(null);
+  const [levelUp, setLevelUp] = useState(false);
+  const last = useRef<{ seeds: number; level: number } | null>(null);
+
+  useEffect(() => {
+    if (!island.loaded) return;
+    const prev = last.current;
+    last.current = { seeds: island.seeds, level: island.level };
+    // Only celebrate changes after the first load, not the load itself.
+    if (!prev || island.seeds <= prev.seeds) return;
+    setGain(island.seeds - prev.seeds);
+    if (island.level > prev.level) setLevelUp(true);
+    const t = setTimeout(() => setGain(null), 2200);
+    return () => clearTimeout(t);
+  }, [island.loaded, island.seeds, island.level]);
+
+  return (
+    <div className="seed-jar">
+      <div className="seed-row">
+        <span className="seed-count" data-testid="seed-count">
+          🌱 {island.seeds}
+        </span>
+        {gain !== null && <span className="seed-pop">+{gain}</span>}
+        <span className="badge" data-testid="island-level">
+          Level {island.level}
+        </span>
+        <button className="build-button" onClick={onBuild}>
+          🔨 Build
+        </button>
+      </div>
+      <div className="progress" aria-hidden>
+        <div style={{ width: `${island.progress * 100}%` }} />
+      </div>
+      <p className="muted small">
+        {island.toNext === null ? 'Top level, nice work!' : `${island.toNext} more seeds to level ${island.level + 1}`}
+      </p>
+      {levelUp && (
+        <button className="level-up" onClick={() => setLevelUp(false)}>
+          🎉 Island level {island.level}! New things to build.
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Top-left card while in a room: the shareable code, the seed jar, and who's here.
 export function RoomPanel({
   room,
   me,
   members,
   onlineIds,
+  island,
+  onBuild,
   onEditAvatar,
   onLeave,
 }: {
@@ -16,6 +66,8 @@ export function RoomPanel({
   me: Player;
   members: MemberWithProfile[];
   onlineIds: string[];
+  island: RoomIsland;
+  onBuild: () => void;
   onEditAvatar: () => void;
   onLeave: () => void;
 }) {
@@ -47,6 +99,8 @@ export function RoomPanel({
       <button className="link align-start" onClick={() => copy('link')}>
         {copied === 'link' ? 'Invite link copied!' : 'Copy invite link'}
       </button>
+
+      <SeedJar island={island} onBuild={onBuild} />
 
       <p className="muted small members-heading">
         Here now · <span data-testid="member-count">{members.length}</span>

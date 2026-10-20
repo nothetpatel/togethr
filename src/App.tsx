@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { IslandScene, type IslandOther, type IslandPlayer } from './island/IslandScene';
+import { IslandScene, type IslandBuild, type IslandOther, type IslandPlayer } from './island/IslandScene';
 import { spawnState, type PlayerState } from './island/LocalPlayer';
 import { useRoomLive } from './hooks/useRoomLive';
 import { useRoomMembers } from './hooks/useRoomMembers';
@@ -10,6 +10,12 @@ import { PomodoroPanel } from './components/PomodoroPanel';
 import { RoomPanel } from './components/RoomPanel';
 import { progressOf, TodoPanel } from './components/TodoPanel';
 import { useRoomTodos } from './hooks/useRoomTodos';
+import { CheckinCard } from './components/CheckinCard';
+import { BuildDock, buildProblem, type BuildUi } from './components/BuildDock';
+import { useRoomIsland } from './hooks/useRoomIsland';
+import { useRoomTimer } from './hooks/useRoomTimer';
+import { useSessionCheckins } from './hooks/useSessionCheckins';
+import { chime } from './lib/chime';
 import { getPlayerId, supabase } from './lib/supabase';
 import { errorMessage, getMyPlayer, getRoom, joinRoom, lastRoomId, leaveRoom, rememberRoom } from './lib/rooms';
 import { isValidRoomCode, normalizeRoomCode } from './lib/roomCode';
@@ -125,6 +131,36 @@ export function App() {
     live.announceProfile();
   }
   const todos = useRoomTodos(supabase, roomId, myId);
+  const timer = useRoomTimer(supabase, roomId, chime);
+  const sessions = useSessionCheckins(supabase, roomId);
+  const island = useRoomIsland(supabase, stage.kind === 'room' ? stage.room : null);
+
+  // Build mode: the dock's state, and what the island should show for it.
+  const [buildUi, setBuildUi] = useState<BuildUi | null>(null);
+  useEffect(() => setBuildUi(null), [roomId]);
+  const islandBuild = useMemo<IslandBuild | null>(() => {
+    if (!buildUi) return null;
+    if (buildUi.mode !== 'place') return { ghost: null };
+    return {
+      ghost: {
+        kind: buildUi.kind,
+        rotation: buildUi.rotation,
+        at: buildUi.at,
+        fits: buildUi.at !== null && buildProblem(buildUi, island.items) === null,
+      },
+      movingId: buildUi.moving?.id,
+    };
+  }, [buildUi, island.items]);
+
+  // Everyone's goal for the focus round in progress, shown above their animal.
+  const goals = useMemo(() => {
+    const byPlayer = new Map<string, string>();
+    const t = timer.timer;
+    if (t?.phase === 'focus') {
+      for (const c of sessions.checkins) if (c.session_id === t.session_id) byPlayer.set(c.player_id, c.goal);
+    }
+    return byPlayer;
+  }, [timer.timer, sessions.checkins]);
 
   // "2/5" next to each name on the island, once someone has tasks.
   const badges = useMemo(() => {
@@ -143,26 +179,37 @@ export function App() {
             avatar: me.avatar,
             nickname: stage.kind === 'room' ? me.nickname : null,
             badge: badges.get(me.id),
+            goal: goals.get(me.id),
           }
         : null,
-    [me, stage.kind, badges],
+    [me, stage.kind, badges, goals],
   );
   const others = useMemo<IslandOther[]>(
     () =>
       members
         .filter((m) => m.player_id !== myId && live.onlineIds.includes(m.player_id))
-        .map((m) => ({ id: m.player_id, avatar: m.avatar, nickname: m.nickname, badge: badges.get(m.player_id) })),
-    [members, myId, live.onlineIds, badges],
+        .map((m) => ({
+          id: m.player_id,
+          avatar: m.avatar,
+          nickname: m.nickname,
+          badge: badges.get(m.player_id),
+          goal: goals.get(m.player_id),
+        })),
+    [members, myId, live.onlineIds, badges, goals],
   );
 
   return (
-    <div className="app">
+    <div className={`app ${buildUi ? 'is-building' : ''}`}>
       <IslandScene
         player={islandPlayer}
         state={myState}
         onMove={live.sendPosition}
         others={others}
         remotes={live.remotes}
+        items={island.items}
+        build={islandBuild}
+        onBuildPoint={(x, z) => setBuildUi((ui) => (ui?.mode === 'place' ? { ...ui, at: [x, z] } : ui))}
+        onItemTap={(item) => setBuildUi({ mode: 'selected', item })}
       />
 
       {(stage.kind === 'offline' || stage.kind === 'connecting' || stage.kind === 'error') && (
@@ -198,16 +245,24 @@ export function App() {
             me={stage.player}
             members={members}
             onlineIds={live.onlineIds}
+            island={island}
+            onBuild={() => setBuildUi({ mode: 'shop' })}
             onEditAvatar={() => setEditingAvatar(true)}
             onLeave={() => leave(stage.player, stage.room)}
           />
-          <PomodoroPanel
-            client={supabase}
-            roomId={stage.room.id}
-            isOwner={stage.room.owner_id === stage.player.id}
-          />
+          <div className="hud-center">
+            <PomodoroPanel room={timer} isOwner={stage.room.owner_id === stage.player.id} />
+            <CheckinCard
+              timer={timer.timer}
+              myId={stage.player.id}
+              myTodos={todos.todos.filter((t) => t.player_id === stage.player.id)}
+              sessions={sessions}
+            />
+          </div>
         </div>
       )}
+
+      {supabase && stage.kind === 'room' && buildUi && <BuildDock ui={buildUi} setUi={setBuildUi} island={island} />}
 
       {supabase && stage.kind === 'room' && (
         <TodoPanel meId={stage.player.id} members={members} onlineIds={live.onlineIds} todos={todos} />

@@ -2,13 +2,16 @@ import { useEffect, useMemo, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import type { Avatar } from '../shared/types';
+import type { ItemKind } from '../shared/catalog';
+import type { Avatar, RoomItem } from '../shared/types';
 import { AnimalGallery } from './AnimalGallery';
 import { Flowers } from './Flowers';
 import { Plant } from './Foliage';
-import { BUSHES, OBSTACLES, TREE_SPOTS, TREES } from './layout';
+import { BUSHES, TREE_SPOTS, TREES } from './layout';
 import { LocalPlayer, TapMarker, type PlayerState } from './LocalPlayer';
 import { walkTarget } from './movement';
+import { PlacedItems, PlacementGhost } from './PlacedItems';
+import { obstaclesWith } from './placement';
 import type { RemoteState } from './remote';
 import { RemotePlayer } from './RemotePlayer';
 import { isWebKit } from './device';
@@ -25,6 +28,23 @@ export interface IslandPlayer {
   nickname: string | null;
   /** Small extra text in the name tag, e.g. to-do progress "2/5". */
   badge?: string;
+  /** Goal for the focus round in progress, shown as a speech bubble. */
+  goal?: string;
+}
+
+/** Build mode, driven by the app. While on, taps don't walk your animal. */
+export interface IslandBuild {
+  /** An item following the pointer, waiting to be placed (null in the shop). */
+  ghost: {
+    kind: ItemKind;
+    rotation: number;
+    /** Where the preview is, once the pointer has touched the island. */
+    at: [number, number] | null;
+    /** True if it can go there. */
+    fits: boolean;
+  } | null;
+  /** Set when moving an existing item (it's hidden while its preview moves). */
+  movingId?: string;
 }
 
 export interface IslandOther {
@@ -32,6 +52,7 @@ export interface IslandOther {
   avatar: Avatar;
   nickname: string;
   badge?: string;
+  goal?: string;
 }
 
 const SHOW_GALLERY = import.meta.env.DEV && new URLSearchParams(location.search).has('gallery');
@@ -77,14 +98,25 @@ function FitCameraToScreen() {
   return null;
 }
 
-function Terrain({ onTap }: { onTap: (x: number, z: number) => void }) {
+function Terrain({
+  onTap,
+  onHover,
+}: {
+  onTap: (x: number, z: number) => void;
+  onHover?: (x: number, z: number) => void;
+}) {
   const geometry = useMemo(terrainGeometry, []);
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > TAP_SLOP) return; // the camera was being dragged
     onTap(e.point.x, e.point.z);
   };
   return (
-    <mesh geometry={geometry} receiveShadow onClick={handleClick}>
+    <mesh
+      geometry={geometry}
+      receiveShadow
+      onClick={handleClick}
+      onPointerMove={onHover && ((e: ThreeEvent<PointerEvent>) => onHover(e.point.x, e.point.z))}
+    >
       <meshStandardMaterial vertexColors roughness={0.95} />
     </mesh>
   );
@@ -96,6 +128,10 @@ export function IslandScene({
   onMove,
   others = [],
   remotes,
+  items = [],
+  build = null,
+  onBuildPoint,
+  onItemTap,
 }: {
   player: IslandPlayer | null;
   /** Your animal's position, owned by the app so it can be broadcast. */
@@ -105,10 +141,23 @@ export function IslandScene({
   /** Other people in the room, and their live positions. */
   others?: IslandOther[];
   remotes?: RefObject<Map<string, RemoteState>>;
+  /** Things built on this room's island. */
+  items?: RoomItem[];
+  /** While set, taps move the build preview instead of your animal. */
+  build?: IslandBuild | null;
+  onBuildPoint?: (x: number, z: number) => void;
+  /** Tapping a built item while in build mode. */
+  onItemTap?: (item: RoomItem) => void;
 }) {
-  function moveTo(x: number, z: number) {
+  const obstacles = useMemo(() => obstaclesWith(items), [items]);
+
+  function tap(x: number, z: number) {
+    if (build) {
+      onBuildPoint?.(x, z);
+      return;
+    }
     if (!player) return;
-    state.current.target = walkTarget([x, z], OBSTACLES);
+    state.current.target = walkTarget([x, z], obstacles);
     onMove?.();
   }
 
@@ -136,7 +185,17 @@ export function IslandScene({
       />
 
       <Water islandRadius={COAST_RADIUS} sunPosition={SUN_POSITION} />
-      <Terrain onTap={moveTo} />
+      <Terrain onTap={tap} onHover={build ? onBuildPoint : undefined} />
+      <PlacedItems items={items} hiddenId={build?.movingId} onTap={build ? onItemTap : undefined} />
+      {build?.ghost?.at && (
+        <PlacementGhost
+          kind={build.ghost.kind}
+          x={build.ghost.at[0]}
+          z={build.ghost.at[1]}
+          rotation={build.ghost.rotation}
+          fits={build.ghost.fits}
+        />
+      )}
 
       {TREES.map(({ kind, at: [x, z], scale }, i) => (
         <Plant key={i} kind={kind} seed={i + 1} position={ground(x, z, 0.06)} scale={scale} />
@@ -148,13 +207,29 @@ export function IslandScene({
       {SHOW_GALLERY && <AnimalGallery />}
       {player && !SHOW_GALLERY && (
         <>
-          <LocalPlayer avatar={player.avatar} nickname={player.nickname} badge={player.badge} state={state} />
+          <LocalPlayer
+            avatar={player.avatar}
+            nickname={player.nickname}
+            badge={player.badge}
+            goal={player.goal}
+            state={state}
+            obstacles={obstacles}
+          />
           <TapMarker state={state} />
         </>
       )}
       {remotes &&
         others.map((o) => (
-          <RemotePlayer key={o.id} id={o.id} avatar={o.avatar} nickname={o.nickname} badge={o.badge} remotes={remotes} />
+          <RemotePlayer
+            key={o.id}
+            id={o.id}
+            avatar={o.avatar}
+            nickname={o.nickname}
+            badge={o.badge}
+            goal={o.goal}
+            remotes={remotes}
+            obstacles={obstacles}
+          />
         ))}
 
       <FitCameraToScreen />

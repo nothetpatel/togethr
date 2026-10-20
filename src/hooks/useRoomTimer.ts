@@ -32,8 +32,8 @@ type OnPhaseEnd = (finished: TimerState) => void;
  * (any member may; the server makes sure it only happens once).
  */
 export function useRoomTimer(
-  client: SupabaseClient,
-  roomId: string,
+  client: SupabaseClient | null,
+  roomId: string | null,
   onPhaseEnd?: OnPhaseEnd,
 ): RoomTimer {
   const [timer, setTimer] = useState<TimerState | null>(null);
@@ -51,6 +51,7 @@ export function useRoomTimer(
 
   // Clock offset: median of three samples, refreshed every few minutes.
   useEffect(() => {
+    if (!client) return;
     let cancelled = false;
     const measure = async () => {
       try {
@@ -73,6 +74,7 @@ export function useRoomTimer(
   // Load the row and follow changes.
   useEffect(() => {
     setTimer(null);
+    if (!client || !roomId) return;
     const load = () =>
       client
         .from('timer_state')
@@ -105,7 +107,7 @@ export function useRoomTimer(
 
   // Phase finished: chime once, then ask the server to move on.
   useEffect(() => {
-    if (!timer || timer.status !== 'running' || !timer.ends_at || remaining > 0) return;
+    if (!client || !roomId || !timer || timer.status !== 'running' || !timer.ends_at || remaining > 0) return;
     if (handledEnd.current === timer.ends_at) return;
     handledEnd.current = timer.ends_at;
     phaseEnd.current?.(timer);
@@ -120,6 +122,7 @@ export function useRoomTimer(
 
   const control = useCallback(
     async (action: TimerAction) => {
+      if (!client || !roomId) return;
       setError(null);
       const { data, error } = await client.rpc('timer_control', { p_room: roomId, p_action: action });
       if (error) setError(error.message);
@@ -130,6 +133,7 @@ export function useRoomTimer(
 
   const configure = useCallback(
     async (d: TimerDurations) => {
+      if (!client || !roomId) return;
       setError(null);
       const { data, error } = await client.rpc('timer_control', {
         p_room: roomId,

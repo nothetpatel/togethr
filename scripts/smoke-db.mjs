@@ -6,6 +6,7 @@
 // removed by cleanup_idle_rooms() and anonymous users can be cleared in
 // Authentication → Users.
 
+import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { loadEnv } from 'vite';
 
@@ -117,6 +118,43 @@ const outsiderJoin = await joinChannel(outsider.client);
 check('non-member cannot join the room’s live channel', outsiderJoin === 'CHANNEL_ERROR', outsiderJoin);
 const outsiderAdvance = await outsider.client.rpc('timer_advance', { p_room: room.id });
 check('non-member cannot advance the timer', !!outsiderAdvance.error, outsiderAdvance.error?.message);
+
+// Island growth (migration 0004)
+const { data: serverCatalog, error: catalogErr } = await guest.client.from('item_catalog').select().order('kind');
+const clientCatalog = [...readFileSync(new URL('../src/shared/catalog.ts', import.meta.url), 'utf8').matchAll(
+  /kind: '(\w+)'.*?cost: (\d+), minLevel: (\d+)/g,
+)].map(([, kind, cost, level]) => `${kind}:${cost}:${level}`).sort();
+const serverRows = (serverCatalog ?? []).map((c) => `${c.kind}:${c.cost}:${c.min_level}`).sort();
+check(
+  'app catalog matches the database catalog',
+  !catalogErr && clientCatalog.length > 0 && JSON.stringify(clientCatalog) === JSON.stringify(serverRows),
+  catalogErr?.message ?? (JSON.stringify(clientCatalog) === JSON.stringify(serverRows) ? '' : 'prices or levels differ'),
+);
+
+const jar = await guest.client.from('rooms').select('seeds, seeds_earned').eq('id', room.id).single();
+check('a new room starts with an empty seed jar', jar.data?.seeds === 0 && jar.data?.seeds_earned === 0, jar.error?.message);
+
+const broke = await guest.client.rpc('place_item', { p_room: room.id, p_kind: 'bush', p_x: 0.5, p_z: 1.5 });
+check('can’t build without enough seeds', /not enough seeds/.test(broke.error?.message ?? ''), broke.error?.message);
+const locked = await guest.client.rpc('place_item', { p_room: room.id, p_kind: 'cottage', p_x: 0.5, p_z: 1.5 });
+check('can’t build items above the island’s level', /unlocks at island level/.test(locked.error?.message ?? ''), locked.error?.message);
+const outsiderBuild = await outsider.client.rpc('place_item', { p_room: room.id, p_kind: 'bush', p_x: 0.5, p_z: 1.5 });
+check('non-member cannot build', /not a member/.test(outsiderBuild.error?.message ?? ''), outsiderBuild.error?.message);
+
+// The timer is still in the focus round started above: skip to a break and back.
+await owner.client.rpc('timer_control', { p_room: room.id, p_action: 'skip' }); // → short break
+const breakGoal = await guest.client.rpc('checkin_set_goal', { p_room: room.id, p_goal: 'nope' });
+const atFocus = await owner.client.rpc('timer_control', { p_room: room.id, p_action: 'skip' }); // → focus
+const goal = await guest.client.rpc('checkin_set_goal', { p_room: room.id, p_goal: 'Smoke test goal' });
+check(
+  'goals can only be set in a focus round',
+  /during focus rounds/.test(breakGoal.error?.message ?? '') && !goal.error && goal.data?.session_id === atFocus.data?.session_id,
+  breakGoal.error ? goal.error?.message : 'a goal was accepted during a break',
+);
+const tooSoon = await guest.client.rpc('checkin_result', { p_checkin: goal.data?.id, p_outcome: 'done' });
+check('can’t claim a result before the round finishes', /hasn't finished yet/.test(tooSoon.error?.message ?? ''), tooSoon.error?.message);
+const outsiderGoal = await outsider.client.rpc('checkin_set_goal', { p_room: room.id, p_goal: 'sneaky' });
+check('non-member cannot check in', /not a member/.test(outsiderGoal.error?.message ?? ''), outsiderGoal.error?.message);
 
 // Logged-out visitors get nothing
 const stranger = newClient();
