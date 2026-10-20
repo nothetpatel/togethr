@@ -84,6 +84,13 @@ check('guest cannot write the timer table directly', !!directWrite.error || (dir
 const timer = await guest.client.from('timer_state').select('status, ends_at').eq('room_id', room.id).single();
 check('guest sees the running timer', timer.data?.status === 'running' && !!timer.data?.ends_at);
 
+const early = await guest.client.rpc('timer_advance', { p_room: room.id });
+check(
+  'advancing a still-running timer changes nothing',
+  !early.error && early.data?.phase === 'focus' && early.data?.status === 'running',
+  early.error?.message,
+);
+
 const now = await guest.client.rpc('server_now');
 check('server_now works', !now.error && !Number.isNaN(Date.parse(now.data)), now.error?.message);
 
@@ -108,6 +115,8 @@ check('member can join the room’s live channel', memberJoin === 'SUBSCRIBED', 
 const outsider = await player('smoke-outsider', 'koala');
 const outsiderJoin = await joinChannel(outsider.client);
 check('non-member cannot join the room’s live channel', outsiderJoin === 'CHANNEL_ERROR', outsiderJoin);
+const outsiderAdvance = await outsider.client.rpc('timer_advance', { p_room: room.id });
+check('non-member cannot advance the timer', !!outsiderAdvance.error, outsiderAdvance.error?.message);
 
 // Logged-out visitors get nothing
 const stranger = newClient();

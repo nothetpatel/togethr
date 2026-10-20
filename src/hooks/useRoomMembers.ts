@@ -16,10 +16,15 @@ export function useRoomMembers(
       return;
     }
     let cancelled = false;
-    const refresh = () =>
+    // Loads can overlap (e.g. one on connect, one for a join that lands
+    // meanwhile) and finish out of order; only the newest one counts.
+    let latest = 0;
+    const refresh = () => {
+      const request = ++latest;
       fetchMembers(client, roomId)
-        .then((m) => !cancelled && setMembers(m))
+        .then((m) => !cancelled && request === latest && setMembers(m))
         .catch((err) => console.error('loading members failed', err));
+    };
     refreshRef.current = refresh;
 
     const channel = client

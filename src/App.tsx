@@ -6,6 +6,7 @@ import { useRoomLive } from './hooks/useRoomLive';
 import { useRoomMembers } from './hooks/useRoomMembers';
 import { AvatarCreator } from './components/AvatarCreator';
 import { RoomGate } from './components/RoomGate';
+import { PomodoroPanel } from './components/PomodoroPanel';
 import { RoomPanel } from './components/RoomPanel';
 import { progressOf, TodoPanel } from './components/TodoPanel';
 import { useRoomTodos } from './hooks/useRoomTodos';
@@ -38,9 +39,16 @@ export function App() {
 
   useEffect(() => {
     if (!supabase) return;
+    // Ignore a result that arrives after this effect is torn down (React runs it
+    // twice in development); otherwise a slow load could undo a later choice,
+    // like leaving the room.
+    let current = true;
     initialStage(supabase)
-      .then(setStage)
-      .catch((err) => setStage({ kind: 'error', message: errorMessage(err) }));
+      .then((s) => current && setStage(s))
+      .catch((err) => current && setStage({ kind: 'error', message: errorMessage(err) }));
+    return () => {
+      current = false;
+    };
   }, []);
 
   function enterRoom(player: Player, room: Room) {
@@ -145,14 +153,21 @@ export function App() {
       )}
 
       {supabase && stage.kind === 'room' && (
-        <RoomPanel
-          room={stage.room}
-          me={stage.player}
-          members={members}
-          onlineIds={live.onlineIds}
-          onEditAvatar={() => setEditingAvatar(true)}
-          onLeave={() => leave(stage.player, stage.room)}
-        />
+        <div className="hud-top">
+          <RoomPanel
+            room={stage.room}
+            me={stage.player}
+            members={members}
+            onlineIds={live.onlineIds}
+            onEditAvatar={() => setEditingAvatar(true)}
+            onLeave={() => leave(stage.player, stage.room)}
+          />
+          <PomodoroPanel
+            client={supabase}
+            roomId={stage.room.id}
+            isOwner={stage.room.owner_id === stage.player.id}
+          />
+        </div>
       )}
 
       {supabase && stage.kind === 'room' && (

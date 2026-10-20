@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Todo } from '../shared/types';
 
@@ -27,12 +27,29 @@ function upsert(list: Todo[], todo: Todo): Todo[] {
 export function useRoomTodos(client: SupabaseClient | null, roomId: string | null, myId: string | null): RoomTodos {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // While a full load is in flight, remember changes that arrive meanwhile and
+  // re-apply them on top of its result, which may predate them.
+  const changesDuringLoad = useRef<Map<string, Todo | null> | null>(null);
+
+  /** Adds/updates (`row`) or removes (`null`) one to-do. */
+  const apply = useCallback((id: string, row: Todo | null) => {
+    changesDuringLoad.current?.set(id, row);
+    setTodos((list) => (row ? upsert(list, row) : list.filter((t) => t.id !== id)));
+  }, []);
 
   const refetch = useCallback(async () => {
     if (!client || !roomId) return;
+    changesDuringLoad.current = new Map();
     const { data, error } = await client.from('todos').select().eq('room_id', roomId).order('created_at');
-    if (error) setError(error.message);
-    else setTodos(data as Todo[]);
+    const changes = changesDuringLoad.current;
+    changesDuringLoad.current = null;
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    let list = data as Todo[];
+    for (const [id, row] of changes) list = row ? upsert(list, row) : list.filter((t) => t.id !== id);
+    setTodos(list);
   }, [client, roomId]);
 
   useEffect(() => {
@@ -43,17 +60,17 @@ export function useRoomTodos(client: SupabaseClient | null, roomId: string | nul
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'todos', filter: `room_id=eq.${roomId}` },
-        ({ new: row }) => setTodos((list) => upsert(list, row as Todo)),
+        ({ new: row }) => apply((row as Todo).id, row as Todo),
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'todos', filter: `room_id=eq.${roomId}` },
-        ({ new: row }) => setTodos((list) => upsert(list, row as Todo)),
+        ({ new: row }) => apply((row as Todo).id, row as Todo),
       )
       // DELETE events can't be filtered and only carry the id; ids are unique, so just drop it.
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'todos' }, ({ old }) => {
         const id = (old as { id?: string }).id;
-        if (id) setTodos((list) => list.filter((t) => t.id !== id));
+        if (id) apply(id, null);
       })
       // Load once live, so nothing that happens while connecting is missed.
       .subscribe((status) => {
@@ -62,7 +79,7 @@ export function useRoomTodos(client: SupabaseClient | null, roomId: string | nul
     return () => {
       client.removeChannel(channel);
     };
-  }, [client, roomId, refetch]);
+  }, [client, roomId, refetch, apply]);
 
   const add = useCallback(
     async (text: string) => {
@@ -74,16 +91,16 @@ export function useRoomTodos(client: SupabaseClient | null, roomId: string | nul
         .select()
         .single();
       if (error) setError(error.message);
-      else setTodos((list) => upsert(list, data as Todo));
+      else apply((data as Todo).id, data as Todo);
     },
-    [client, roomId, myId],
+    [client, roomId, myId, apply],
   );
 
   const toggle = useCallback(
     (todo: Todo) => {
       if (!client) return;
       setError(null);
-      setTodos((list) => upsert(list, { ...todo, done: !todo.done }));
+      apply(todo.id, { ...todo, done: !todo.done });
       client
         .from('todos')
         .update({ done: !todo.done })
@@ -91,18 +108,18 @@ export function useRoomTodos(client: SupabaseClient | null, roomId: string | nul
         .then(({ error }) => {
           if (error) {
             setError(error.message);
-            setTodos((list) => upsert(list, todo));
+            apply(todo.id, todo);
           }
         });
     },
-    [client],
+    [client, apply],
   );
 
   const remove = useCallback(
     (todo: Todo) => {
       if (!client) return;
       setError(null);
-      setTodos((list) => list.filter((t) => t.id !== todo.id));
+      apply(todo.id, null);
       client
         .from('todos')
         .delete()
@@ -110,11 +127,11 @@ export function useRoomTodos(client: SupabaseClient | null, roomId: string | nul
         .then(({ error }) => {
           if (error) {
             setError(error.message);
-            setTodos((list) => upsert(list, todo));
+            apply(todo.id, todo);
           }
         });
     },
-    [client],
+    [client, apply],
   );
 
   return { todos, add, toggle, remove, error };

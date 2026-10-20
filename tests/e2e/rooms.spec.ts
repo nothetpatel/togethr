@@ -55,6 +55,37 @@ test('owner creates a room, guest joins by code, both see each other', async ({ 
   await owner.getByRole('button', { name: `Delete ${task}` }).click();
   await expect(ownerListOnGuest.getByText(task)).toHaveCount(0);
 
+  // Pomodoro: only the owner has controls, and both countdowns match.
+  const ownerClock = owner.getByTestId('timer-clock');
+  const guestClock = guest.getByTestId('timer-clock');
+  const seconds = async (clock: typeof ownerClock) => {
+    const [m, s] = (await clock.textContent())!.split(':').map(Number);
+    return m * 60 + s;
+  };
+  await expect(guest.getByText('The room owner runs the timer.')).toBeVisible();
+  await expect(guest.getByRole('button', { name: 'Timer settings' })).toHaveCount(0);
+
+  await owner.getByRole('button', { name: 'Timer settings' }).click();
+  await owner.getByRole('spinbutton', { name: /Focus/ }).fill('30');
+  await owner.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(guestClock).toHaveText('30:00');
+
+  await owner.getByRole('button', { name: 'Start' }).click();
+  await expect(guestClock).not.toHaveText('30:00');
+  const first = await seconds(guestClock);
+  await expect.poll(() => seconds(guestClock), { timeout: 5000 }).toBeLessThan(first);
+  await expect
+    .poll(async () => Math.abs((await seconds(ownerClock)) - (await seconds(guestClock))))
+    .toBeLessThanOrEqual(1);
+
+  await owner.getByRole('button', { name: 'Pause' }).click();
+  await expect(guest.locator('.timer-panel')).toContainText('paused');
+  await expect.poll(async () => (await seconds(ownerClock)) - (await seconds(guestClock))).toBe(0);
+
+  await owner.getByRole('button', { name: 'Skip to next phase' }).click();
+  await expect(guest.locator('.timer-panel')).toContainText('Short break');
+  await expect(guest.locator('.timer-dots span.on')).toHaveCount(1);
+
   // The owner hears where the guest's animal is...
   const guestOnOwnerScreen = () =>
     owner.evaluate(() => {

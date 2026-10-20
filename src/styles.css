@@ -340,11 +340,27 @@ input:focus {
 
 /* In-room panel */
 
-.room-panel {
+/* Top of the screen in a room: room card on the left, timer in the middle
+   (the to-do panel sits on the right). Stacked on phones. */
+
+.hud-top {
   position: absolute;
   top: 16px;
   left: 16px;
-  width: min(calc(100% - 32px), 280px);
+  right: 332px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.hud-top > * {
+  pointer-events: auto;
+}
+
+.room-panel {
+  flex: none;
+  width: 280px;
   gap: 10px;
 }
 
@@ -571,7 +587,7 @@ button.icon:focus-visible {
   font-size: 11px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .todo-panel {
     top: auto;
     left: 16px;
@@ -602,4 +618,157 @@ button.icon:focus-visible {
   .todo-panel.open .todo-body {
     display: flex;
   }
+}
+
+/* Pomodoro timer */
+
+.timer-panel {
+  width: 250px;
+  margin: 0 auto;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.timer-panel[aria-busy] {
+  height: 150px;
+}
+
+.timer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timer-phase {
+  font-weight: 700;
+}
+
+.phase-focus .timer-phase {
+  color: #d9536f;
+}
+
+.phase-short_break .timer-phase,
+.phase-long_break .timer-phase {
+  color: #3f9e7a;
+}
+
+.timer-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.timer-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.timer-dots span.on {
+  background: var(--accent);
+}
+
+.timer-clock {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.timer-controls .primary {
+  flex: 1;
+  width: auto;
+}
+
+.timer-controls button:not(.primary) {
+  padding: 8px 11px;
+}
+
+.timer-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.timer-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.timer-field > span:first-child {
+  flex: 1;
+}
+
+.timer-field input {
+  width: 64px;
+  padding: 6px 8px;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .hud-top {
+    right: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .timer-panel {
+    order: -1;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 12px 16px;
+    text-align: left;
+  }
+
+  .timer-panel .timer-clock {
+    font-size: 30px;
+  }
+
+  .timer-panel .timer-controls {
+    width: auto;
+  }
+
+  .timer-panel > p.muted {
+    width: 100%;
+  }
+
+  .room-panel {
+    width: 100%;
+    padding: 12px 16px;
+  }
+
+  /* The to-do sheet lists everyone, so keep the room card short. */
+  .room-panel .members,
+  .room-panel .room-code-row + p {
+    display: none;
+  }
+
+  .room-panel .room-code {
+    font-size: 22px;
+  }
+}
+
+/* UI cards sit above the floating name tags drawn over the 3D scene. */
+.hud-top,
+.todo-panel,
+.overlay,
+.status-card {
+  z-index: 10;
 }

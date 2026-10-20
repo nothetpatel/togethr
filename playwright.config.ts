@@ -11,6 +11,9 @@ const glArgs =
 // players' sessions are reused from tests/e2e/.auth/ (see tests/e2e/players.ts).
 export default defineConfig({
   testDir: 'tests/e2e',
+  // Tests share the same saved players, so running them side by side would
+  // have them overwrite each other's avatars and rooms.
+  workers: 1,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
