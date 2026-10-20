@@ -13,11 +13,13 @@ export function RemotePlayer({
   id,
   avatar,
   nickname,
+  badge,
   remotes,
 }: {
   id: string;
   avatar: Avatar;
   nickname: string;
+  badge?: string;
   remotes: RefObject<Map<string, RemoteState>>;
 }) {
   const group = useRef<THREE.Group>(null);
@@ -39,7 +41,10 @@ export function RemotePlayer({
     <group ref={group} visible={false}>
       <AnimalModel animal={avatar.animal} accent={avatar.color} motion={motion} />
       <Html position={[0, nameTagHeight(avatar.animal), 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-        <div className="name-tag">{nickname}</div>
+        <div className="name-tag">
+          {nickname}
+          {badge && <span className="tag-badge">{badge}</span>}
+        </div>
       </Html>
     </group>
   );

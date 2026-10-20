@@ -7,6 +7,8 @@ import { useRoomMembers } from './hooks/useRoomMembers';
 import { AvatarCreator } from './components/AvatarCreator';
 import { RoomGate } from './components/RoomGate';
 import { RoomPanel } from './components/RoomPanel';
+import { progressOf, TodoPanel } from './components/TodoPanel';
+import { useRoomTodos } from './hooks/useRoomTodos';
 import { getPlayerId, supabase } from './lib/supabase';
 import { errorMessage, getMyPlayer, getRoom, lastRoomId, leaveRoom, rememberRoom } from './lib/rooms';
 import type { Player, Room } from './shared/types';
@@ -59,10 +61,6 @@ export function App() {
   // Your animal shows once you have a profile; the name tag only in a room.
   const me = stage.kind === 'lobby' || stage.kind === 'room' ? stage.player : null;
   const roomId = stage.kind === 'room' ? stage.room.id : null;
-  const islandPlayer = useMemo<IslandPlayer | null>(
-    () => (me ? { avatar: me.avatar, nickname: stage.kind === 'room' ? me.nickname : null } : null),
-    [me, stage.kind],
-  );
 
   // Your position lives here so the room channel can broadcast it.
   const myState = useRef<PlayerState>(spawnState(null));
@@ -80,12 +78,35 @@ export function App() {
     refreshMembers();
     live.announceProfile();
   }
+  const todos = useRoomTodos(supabase, roomId, myId);
+
+  // "2/5" next to each name on the island, once someone has tasks.
+  const badges = useMemo(() => {
+    const byPlayer = new Map<string, string>();
+    for (const m of members) {
+      const { done, total } = progressOf(todos.todos.filter((t) => t.player_id === m.player_id));
+      if (total) byPlayer.set(m.player_id, `${done}/${total}`);
+    }
+    return byPlayer;
+  }, [members, todos.todos]);
+
+  const islandPlayer = useMemo<IslandPlayer | null>(
+    () =>
+      me
+        ? {
+            avatar: me.avatar,
+            nickname: stage.kind === 'room' ? me.nickname : null,
+            badge: badges.get(me.id),
+          }
+        : null,
+    [me, stage.kind, badges],
+  );
   const others = useMemo<IslandOther[]>(
     () =>
       members
         .filter((m) => m.player_id !== myId && live.onlineIds.includes(m.player_id))
-        .map((m) => ({ id: m.player_id, avatar: m.avatar, nickname: m.nickname })),
-    [members, myId, live.onlineIds],
+        .map((m) => ({ id: m.player_id, avatar: m.avatar, nickname: m.nickname, badge: badges.get(m.player_id) })),
+    [members, myId, live.onlineIds, badges],
   );
 
   return (
@@ -132,6 +153,10 @@ export function App() {
           onEditAvatar={() => setEditingAvatar(true)}
           onLeave={() => leave(stage.player, stage.room)}
         />
+      )}
+
+      {supabase && stage.kind === 'room' && (
+        <TodoPanel meId={stage.player.id} members={members} onlineIds={live.onlineIds} todos={todos} />
       )}
 
       {supabase && me && editingAvatar && (

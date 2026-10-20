@@ -21,12 +21,15 @@ export interface IslandPlayer {
   avatar: Avatar;
   /** Shown above the animal; null hides the name tag. */
   nickname: string | null;
+  /** Small extra text in the name tag, e.g. to-do progress "2/5". */
+  badge?: string;
 }
 
 export interface IslandOther {
   id: string;
   avatar: Avatar;
   nickname: string;
+  badge?: string;
 }
 
 const SHOW_GALLERY = import.meta.env.DEV && new URLSearchParams(location.search).has('gallery');
@@ -114,13 +117,13 @@ export function IslandScene({
       {SHOW_GALLERY && <AnimalGallery />}
       {player && !SHOW_GALLERY && (
         <>
-          <LocalPlayer avatar={player.avatar} nickname={player.nickname} state={state} />
+          <LocalPlayer avatar={player.avatar} nickname={player.nickname} badge={player.badge} state={state} />
           <TapMarker state={state} />
         </>
       )}
       {remotes &&
         others.map((o) => (
-          <RemotePlayer key={o.id} id={o.id} avatar={o.avatar} nickname={o.nickname} remotes={remotes} />
+          <RemotePlayer key={o.id} id={o.id} avatar={o.avatar} nickname={o.nickname} badge={o.badge} remotes={remotes} />
         ))}
 
       <OrbitControls

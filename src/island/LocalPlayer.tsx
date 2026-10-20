@@ -33,10 +33,12 @@ const CAMERA_FOLLOW = 2.5; // higher = snappier
 export function LocalPlayer({
   avatar,
   nickname,
+  badge,
   state,
 }: {
   avatar: Avatar;
   nickname: string | null;
+  badge?: string;
   state: RefObject<PlayerState>;
 }) {
   const group = useRef<THREE.Group>(null);
@@ -91,7 +93,10 @@ export function LocalPlayer({
       <AnimalModel animal={avatar.animal} accent={avatar.color} motion={motion} />
       {nickname && (
         <Html position={[0, nameTagHeight(avatar.animal), 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="name-tag">{nickname}</div>
+          <div className="name-tag">
+            {nickname}
+            {badge && <span className="tag-badge">{badge}</span>}
+          </div>
         </Html>
       )}
     </group>

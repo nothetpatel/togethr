@@ -42,6 +42,19 @@ test('owner creates a room, guest joins by code, both see each other', async ({ 
   await guestBecomes('Koala', '🐨');
   await guestBecomes('Panda', '🐼'); // back again, so the next run starts the same
 
+  // To-dos: the owner's list shows up live (read-only) for the guest.
+  const ownerListOnGuest = guest.locator('section[data-member="E2E Owner"]');
+  const task = `Read chapter ${Date.now() % 1000}`;
+  await owner.getByLabel('New task').fill(task);
+  await owner.getByLabel('New task').press('Enter');
+  await expect(ownerListOnGuest.getByText(task)).toBeVisible();
+  await expect(ownerListOnGuest.getByRole('checkbox')).toHaveCount(0);
+  await owner.getByRole('checkbox', { name: task }).check();
+  await expect(ownerListOnGuest.locator('li.done', { hasText: task })).toBeVisible();
+  await expect(ownerListOnGuest).toContainText('1/1');
+  await owner.getByRole('button', { name: `Delete ${task}` }).click();
+  await expect(ownerListOnGuest.getByText(task)).toHaveCount(0);
+
   // The owner hears where the guest's animal is...
   const guestOnOwnerScreen = () =>
     owner.evaluate(() => {
