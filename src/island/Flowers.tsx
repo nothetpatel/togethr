@@ -3,6 +3,7 @@ import { Instance, Instances } from '@react-three/drei';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from './random';
+import { isOnGrass, terrainHeight } from './terrain';
 
 // Tulips, roses and little daisies in patches around the island. Each part
 // (stems, leaves, tulip cups, rose heads, daisy petals, daisy centres) is one
@@ -14,6 +15,8 @@ interface Flower {
   kind: Kind;
   x: number;
   z: number;
+  /** Ground height at (x, z). */
+  ground: number;
   color: string;
   turn: number;
   scale: number;
@@ -103,10 +106,9 @@ export function scatterFlowers(avoid: [number, number][], seed = 7): Flower[] {
   const pick = <T,>(items: T[]) => items[Math.floor(rand() * items.length)];
   const flowers: Flower[] = [];
   const add = (kind: Kind, x: number, z: number) => {
-    const r = Math.hypot(x, z);
-    if (r < 2.2 || r > 5.7) return;
+    if (Math.hypot(x, z) < 2.2 || !isOnGrass(x, z, 0.1)) return;
     if (avoid.some(([ax, az]) => Math.hypot(x - ax, z - az) < 0.55)) return;
-    flowers.push({ kind, x, z, color: pick(PALETTE[kind]), turn: rand() * Math.PI * 2, scale: 1.1 + rand() * 0.6 });
+    flowers.push({ kind, x, z, ground: terrainHeight(x, z) - 0.01, color: pick(PALETTE[kind]), turn: rand() * Math.PI * 2, scale: 1.1 + rand() * 0.6 });
   };
 
   // Patches of a single kind, like little garden beds.
@@ -124,7 +126,7 @@ export function scatterFlowers(avoid: [number, number][], seed = 7): Flower[] {
   // A sprinkle of daisies along the edge of the grass.
   for (let i = 0; i < 40; i++) {
     const angle = rand() * Math.PI * 2;
-    const radius = 5.1 + rand() * 0.55;
+    const radius = 5.0 + rand() * 1.0;
     add('daisy', Math.cos(angle) * radius, Math.sin(angle) * radius);
   }
 
@@ -152,41 +154,41 @@ export function Flowers({ avoid }: { avoid: [number, number][] }) {
         <cylinderGeometry args={[0.01, 0.013, 1, 5]} />
         <meshStandardMaterial color="#3f8a4a" roughness={0.8} />
         {flowers.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f) / 2, f.z]} scale={[1, top(f), 1]} />
+          <Instance key={i} position={[f.x, f.ground + (top(f) / 2), f.z]} scale={[1, top(f), 1]} />
         ))}
       </Instances>
 
       <Instances limit={Math.max(1, leaves.length)} geometry={leaf}>
         <meshStandardMaterial color="#4f9b52" roughness={0.75} side={THREE.DoubleSide} />
         {leaves.map(({ f, y, turn, size }, i) => (
-          <Instance key={i} position={[f.x, y, f.z]} rotation={[0, turn, 0]} scale={size} />
+          <Instance key={i} position={[f.x, f.ground + y, f.z]} rotation={[0, turn, 0]} scale={size} />
         ))}
       </Instances>
 
       <Instances limit={Math.max(1, tulips.length)} geometry={tulipHead}>
         <meshStandardMaterial roughness={0.5} side={THREE.DoubleSide} />
         {tulips.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f) - 0.01, f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
+          <Instance key={i} position={[f.x, f.ground + (top(f) - 0.01), f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
         ))}
       </Instances>
 
       <Instances limit={Math.max(1, roses.length)} geometry={roseHead}>
         <meshStandardMaterial roughness={0.55} side={THREE.DoubleSide} />
         {roses.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f) - 0.005, f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
+          <Instance key={i} position={[f.x, f.ground + (top(f) - 0.005), f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
         ))}
       </Instances>
 
       <Instances limit={Math.max(1, daisies.length)} geometry={daisyPetals}>
         <meshStandardMaterial roughness={0.6} side={THREE.DoubleSide} />
         {daisies.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f), f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
+          <Instance key={i} position={[f.x, f.ground + top(f), f.z]} rotation={[0, f.turn, 0]} scale={f.scale} color={f.color} />
         ))}
       </Instances>
       <Instances limit={Math.max(1, daisies.length)} geometry={daisyCentre}>
         <meshStandardMaterial color="#f2b705" roughness={0.7} />
         {daisies.map((f, i) => (
-          <Instance key={i} position={[f.x, top(f) + 0.004, f.z]} scale={f.scale} />
+          <Instance key={i} position={[f.x, f.ground + (top(f) + 0.004), f.z]} scale={f.scale} />
         ))}
       </Instances>
     </group>

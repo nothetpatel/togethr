@@ -58,9 +58,16 @@ const fragmentShader = /* glsl */ `
     return h;
   }
 
+  // Must match coastRadius() in terrain.ts.
+  float coastRadius(float a) {
+    return uIslandRadius + 0.3 * sin(3.0 * a + 1.0) + 0.17 * sin(5.0 * a + 2.3) + 0.08 * sin(9.0 * a + 0.4);
+  }
+
   void main() {
     vec2 p = vWorld.xz;
     float r = length(p);
+    // Distance out from the island's actual (wavy) waterline.
+    float fromShore = r - coastRadius(atan(p.y, p.x));
     float t = uTime;
     float viewDist = length(cameraPosition - vWorld);
 
@@ -77,8 +84,8 @@ const fragmentShader = /* glsl */ `
     vec3 v = normalize(cameraPosition - vWorld);
 
     // Turquoise shallows with an uneven edge, deep blue further out.
-    float edge = (noise(p * 0.35) - 0.5) * 2.5;
-    float shallow = 1.0 - smoothstep(uIslandRadius + 0.4, uIslandRadius + 5.5, r + edge);
+    float edge = (noise(p * 0.35) - 0.5) * 2.0;
+    float shallow = 1.0 - smoothstep(0.3, 5.5, fromShore + edge);
     vec3 color = mix(uDeep, uShallow, shallow);
     // Choppy patches read a touch darker, calm ones a touch lighter.
     color *= 1.04 - 0.10 * patches;
@@ -95,6 +102,9 @@ const fragmentShader = /* glsl */ `
 
     // Fade into the sky far away so the edge of the sea isn't visible.
     float alpha = 1.0 - smoothstep(32.0, 58.0, r);
+    // Clear at the waterline so the sand sloping under the water shows
+    // through, getting more opaque as the water deepens.
+    alpha *= mix(0.2, 1.0, smoothstep(-0.1, 1.8, fromShore));
 
     // Colours are passed in already display-ready (see uniforms), so no
     // colour-space conversion here.

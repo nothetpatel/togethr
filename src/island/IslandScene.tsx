@@ -1,14 +1,16 @@
+import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { Flowers } from './Flowers';
 import { Plant } from './Foliage';
+import { COAST_RADIUS, terrainGeometry, terrainHeight } from './terrain';
 import { Water } from './Water';
 
-// The island: procedural plants (Foliage.tsx), flowers (Flowers.tsx) and sea
-// (Water.tsx). Phase 3 swaps the placeholder buddies for 3D animals and adds
-// tap-to-move; the lighting and camera limits carry over.
+// The island: rolling terrain (terrain.ts), procedural
+// plants (Foliage.tsx), flowers (Flowers.tsx) and sea (Water.tsx). Phase 3
+// swaps the placeholder buddies for 3D animals and adds tap-to-move; the
+// lighting and camera limits carry over.
 
-const ISLAND_RADIUS = 6;
 const SUN_POSITION: [number, number, number] = [6, 10, 4];
 
 type Vec3 = [number, number, number];
@@ -40,6 +42,20 @@ const BUSHES:{ at: [number, number]; scale: number }[] = [
   { at: [-4.1, 2.2], scale: 0.8 },
   { at: [1.9, -3.6], scale: 1 },
 ];
+
+/** A ground point, sunk slightly so trunks and bases don't float on slopes. */
+function ground(x: number, z: number, sink = 0.03): Vec3 {
+  return [x, terrainHeight(x, z) - sink, z];
+}
+
+function Terrain() {
+  const geometry = useMemo(terrainGeometry, []);
+  return (
+    <mesh geometry={geometry} receiveShadow>
+      <meshStandardMaterial vertexColors roughness={0.95} />
+    </mesh>
+  );
+}
 
 function PlaceholderBuddy({ position, color }: { position: Vec3; color: string }) {
   return (
@@ -82,29 +98,18 @@ export function IslandScene() {
         shadow-normalBias={0.02}
       />
 
-      <Water islandRadius={ISLAND_RADIUS} sunPosition={SUN_POSITION} />
+      <Water islandRadius={COAST_RADIUS} sunPosition={SUN_POSITION} />
+      <Terrain />
 
-      {/* Sand ring and grass top */}
-      <mesh position={[0, -0.2, 0]} receiveShadow>
-        <cylinderGeometry args={[ISLAND_RADIUS + 0.6, ISLAND_RADIUS + 1, 0.4, 64]} />
-        <meshStandardMaterial color="#f2dcae" roughness={0.95} />
-      </mesh>
-      <mesh position={[0, 0, 0]} receiveShadow>
-        <cylinderGeometry args={[ISLAND_RADIUS, ISLAND_RADIUS + 0.3, 0.3, 64]} />
-        <meshStandardMaterial color="#93cf7f" roughness={0.9} />
-      </mesh>
-
-      <group position={[0, 0.15, 0]}>
-        {TREES.map(({ kind, at: [x, z], scale }, i) => (
-          <Plant key={i} kind={kind} seed={i + 1} position={[x, 0, z]} scale={scale} />
-        ))}
-        {BUSHES.map(({ at: [x, z], scale }, i) => (
-          <Plant key={i} kind="bush" seed={i + 101} position={[x, 0, z]} scale={scale} />
-        ))}
-        <Flowers avoid={TREE_SPOTS} />
-        <PlaceholderBuddy position={[0, 0, 0]} color="#ffb5c8" />
-        <PlaceholderBuddy position={[1.4, 0, 0.8]} color="#ffd59e" />
-      </group>
+      {TREES.map(({ kind, at: [x, z], scale }, i) => (
+        <Plant key={i} kind={kind} seed={i + 1} position={ground(x, z, 0.06)} scale={scale} />
+      ))}
+      {BUSHES.map(({ at: [x, z], scale }, i) => (
+        <Plant key={i} kind="bush" seed={i + 101} position={ground(x, z, 0.05)} scale={scale} />
+      ))}
+      <Flowers avoid={TREE_SPOTS} />
+      <PlaceholderBuddy position={ground(0, 0)} color="#ffb5c8" />
+      <PlaceholderBuddy position={ground(1.4, 0.8)} color="#ffd59e" />
 
       <OrbitControls
         enablePan={false}
