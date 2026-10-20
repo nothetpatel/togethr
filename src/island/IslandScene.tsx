@@ -1,6 +1,6 @@
-import { useEffect, useMemo, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
-import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { ItemKind } from '../shared/catalog';
 import type { Avatar, RoomItem } from '../shared/types';
@@ -12,6 +12,8 @@ import { LocalPlayer, TapMarker, type PlayerState } from './LocalPlayer';
 import { walkTarget } from './movement';
 import { PlacedItems, PlacementGhost } from './PlacedItems';
 import { obstaclesWith } from './placement';
+import { idSeed, ItemModel } from './ItemModels';
+import { allSeats, assignSeats } from './seats';
 import type { RemoteState } from './remote';
 import { RemotePlayer } from './RemotePlayer';
 import { isWebKit } from './device';
@@ -30,6 +32,13 @@ export interface IslandPlayer {
   badge?: string;
   /** Goal for the focus round in progress, shown as a speech bubble. */
   goal?: string;
+  /** Emoji floating up above the animal right now. */
+  floating?: Floating[];
+}
+
+export interface Floating {
+  id: number;
+  emoji: string;
 }
 
 /** Build mode, driven by the app. While on, taps don't walk your animal. */
@@ -53,6 +62,7 @@ export interface IslandOther {
   nickname: string;
   badge?: string;
   goal?: string;
+  floating?: Floating[];
 }
 
 const SHOW_GALLERY = import.meta.env.DEV && new URLSearchParams(location.search).has('gallery');
@@ -98,6 +108,55 @@ function FitCameraToScreen() {
   return null;
 }
 
+/** Daylight, or a warm golden-hour glow (during breaks), easing between the two. */
+function Lighting({ golden }: { golden: boolean }) {
+  const hemi = useRef<THREE.HemisphereLight>(null);
+  const sun = useRef<THREE.DirectionalLight>(null);
+  const mix = useRef(golden ? 1 : 0);
+  const colors = useMemo(
+    () => ({
+      sky: [new THREE.Color('#fff4e6'), new THREE.Color('#ffc9a0')],
+      ground: [new THREE.Color('#7ab8d9'), new THREE.Color('#c98a6a')],
+      sun: [new THREE.Color('#ffffff'), new THREE.Color('#ffaa66')],
+    }),
+    [],
+  );
+
+  useFrame((_, dt) => {
+    mix.current = THREE.MathUtils.damp(mix.current, golden ? 1 : 0, 0.8, dt);
+    const k = mix.current;
+    if (hemi.current) {
+      hemi.current.color.copy(colors.sky[0]).lerp(colors.sky[1], k);
+      hemi.current.groundColor.copy(colors.ground[0]).lerp(colors.ground[1], k);
+      hemi.current.intensity = 0.9 + 0.05 * k;
+    }
+    if (sun.current) {
+      sun.current.color.copy(colors.sun[0]).lerp(colors.sun[1], k);
+      sun.current.intensity = 1.6 - 0.1 * k;
+    }
+  });
+
+  return (
+    <>
+      <hemisphereLight ref={hemi} args={['#fff4e6', '#7ab8d9', 0.9]} />
+      <directionalLight
+        ref={sun}
+        position={SUN_POSITION}
+        intensity={1.6}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-9}
+        shadow-camera-right={9}
+        shadow-camera-top={9}
+        shadow-camera-bottom={-9}
+        shadow-radius={4}
+        shadow-bias={-0.0005}
+        shadow-normalBias={0.02}
+      />
+    </>
+  );
+}
+
 function Terrain({
   onTap,
   onHover,
@@ -132,6 +191,11 @@ export function IslandScene({
   build = null,
   onBuildPoint,
   onItemTap,
+  focusSession = null,
+  myId = null,
+  onlineIds = [],
+  onOtherTap,
+  golden = false,
 }: {
   player: IslandPlayer | null;
   /** Your animal's position, owned by the app so it can be broadcast. */
@@ -148,8 +212,37 @@ export function IslandScene({
   onBuildPoint?: (x: number, z: number) => void;
   /** Tapping a built item while in build mode. */
   onItemTap?: (item: RoomItem) => void;
+  /** The focus round in progress (null when not focusing): everyone sits together. */
+  focusSession?: string | null;
+  myId?: string | null;
+  /** Everyone in the room right now (including you), for sharing out seats. */
+  onlineIds?: string[];
+  /** Tapping someone else's animal (to send them a reaction). */
+  onOtherTap?: (id: string) => void;
+  /** Warm golden-hour light (during breaks). */
+  golden?: boolean;
 }) {
   const obstacles = useMemo(() => obstaclesWith(items), [items]);
+  const seats = useMemo(() => allSeats(items), [items]);
+
+  // When a focus round starts, walk to your seat; when it ends, stand up.
+  const seatInputs = useMemo(() => ({ seats, onlineIds, obstacles }), [seats, onlineIds, obstacles]);
+  const latestSeatInputs = useRef(seatInputs);
+  latestSeatInputs.current = seatInputs;
+  useEffect(() => {
+    const st = state.current;
+    if (!focusSession || !myId || !player) {
+      st.seat = null;
+      return;
+    }
+    const { seats, onlineIds, obstacles } = latestSeatInputs.current;
+    const seat = assignSeats([...new Set([...onlineIds, myId])], seats).get(myId);
+    if (!seat) return;
+    st.seat = seat;
+    st.target = walkTarget([seat.x, seat.z], obstacles);
+    onMove?.();
+    // Only when a new round starts (or you arrive mid-round), not on every change.
+  }, [focusSession, myId, !!player]);
 
   function tap(x: number, z: number) {
     if (build) {
@@ -157,6 +250,7 @@ export function IslandScene({
       return;
     }
     if (!player) return;
+    state.current.seat = null; // tapping away gets up from your seat
     state.current.target = walkTarget([x, z], obstacles);
     onMove?.();
   }
@@ -169,23 +263,14 @@ export function IslandScene({
       gl={{ alpha: true, antialias: true }}
       camera={{ position: [9, 9, 11], fov: 40 }}
     >
-      <hemisphereLight args={['#fff4e6', '#7ab8d9', 0.9]} />
-      <directionalLight
-        position={SUN_POSITION}
-        intensity={1.6}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-9}
-        shadow-camera-right={9}
-        shadow-camera-top={9}
-        shadow-camera-bottom={-9}
-        shadow-radius={4}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.02}
-      />
+      <Lighting golden={golden} />
 
-      <Water islandRadius={COAST_RADIUS} sunPosition={SUN_POSITION} />
+      <Water islandRadius={COAST_RADIUS} sunPosition={SUN_POSITION} golden={golden} />
       <Terrain onTap={tap} onHover={build ? onBuildPoint : undefined} />
+      {/* Every island's campfire, to sit round during focus. */}
+      <group position={[0, terrainHeight(0, 0) - 0.02, 0]}>
+        <ItemModel kind="campfire" seed={idSeed('starter')} />
+      </group>
       <PlacedItems items={items} hiddenId={build?.movingId} onTap={build ? onItemTap : undefined} />
       {build?.ghost?.at && (
         <PlacementGhost
@@ -212,8 +297,10 @@ export function IslandScene({
             nickname={player.nickname}
             badge={player.badge}
             goal={player.goal}
+            floating={player.floating}
             state={state}
             obstacles={obstacles}
+            onSat={onMove}
           />
           <TapMarker state={state} />
         </>
@@ -227,8 +314,12 @@ export function IslandScene({
             nickname={o.nickname}
             badge={o.badge}
             goal={o.goal}
+            floating={o.floating}
+            onTap={build ? undefined : onOtherTap}
             remotes={remotes}
             obstacles={obstacles}
+            seats={seats}
+            focusing={!!focusSession}
           />
         ))}
 

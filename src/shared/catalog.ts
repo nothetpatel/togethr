@@ -19,6 +19,19 @@ export type ItemKind =
   | 'cafe_stall'
   | 'cottage';
 
+/**
+ * A seat: offset from the item's centre, and which way the animal faces:
+ * 'item' faces the item (a fire, a desk), 'forward' faces the way the item
+ * does (a bench, a hammock).
+ */
+export interface SeatSpot {
+  x: number;
+  z: number;
+  face: 'item' | 'forward';
+}
+
+const seat = (x: number, z: number, face: SeatSpot['face'] = 'item'): SeatSpot => ({ x, z, face });
+
 export interface CatalogItem {
   kind: ItemKind;
   name: string;
@@ -29,8 +42,8 @@ export interface CatalogItem {
   radius: number;
   /** Animals walk round it (false for flat things you can walk across). */
   solid: boolean;
-  /** Seats (offsets from the item, before rotation) animals can sit at during focus. */
-  seats?: [number, number][];
+  /** Where animals can sit during focus: offsets from the item (before its rotation). */
+  seats?: SeatSpot[];
 }
 
 export const CATALOG: CatalogItem[] = [
@@ -38,15 +51,15 @@ export const CATALOG: CatalogItem[] = [
   { kind: 'bush', name: 'Bush', emoji: '🌿', cost: 15, minLevel: 1, radius: 0.32, solid: true },
   { kind: 'stepping_stones', name: 'Stepping stones', emoji: '🪨', cost: 15, minLevel: 1, radius: 0.4, solid: false },
   { kind: 'tree', name: 'Tree', emoji: '🌳', cost: 30, minLevel: 1, radius: 0.4, solid: true },
-  { kind: 'bench', name: 'Bench', emoji: '🪑', cost: 40, minLevel: 2, radius: 0.5, solid: true, seats: [[-0.3, 0.45], [0.3, 0.45]] },
+  { kind: 'bench', name: 'Bench', emoji: '🪑', cost: 40, minLevel: 2, radius: 0.5, solid: true, seats: [seat(-0.25, 0.3, 'forward'), seat(0.25, 0.3, 'forward')] },
   { kind: 'lantern', name: 'Lantern', emoji: '🏮', cost: 40, minLevel: 2, radius: 0.18, solid: true },
-  { kind: 'picnic_blanket', name: 'Picnic blanket', emoji: '🧺', cost: 50, minLevel: 2, radius: 0.6, solid: false, seats: [[-0.25, 0], [0.25, 0]] },
-  { kind: 'campfire', name: 'Campfire', emoji: '🔥', cost: 60, minLevel: 2, radius: 0.4, solid: true, seats: [[0, 0.9], [0.9, 0], [0, -0.9], [-0.9, 0]] },
-  { kind: 'study_desk', name: 'Study desk', emoji: '📚', cost: 80, minLevel: 3, radius: 0.5, solid: true, seats: [[0, 0.55]] },
-  { kind: 'hammock', name: 'Hammock', emoji: '🏝️', cost: 120, minLevel: 3, radius: 0.7, solid: true, seats: [[0, 0.5]] },
+  { kind: 'picnic_blanket', name: 'Picnic blanket', emoji: '🧺', cost: 50, minLevel: 2, radius: 0.6, solid: false, seats: [seat(-0.25, 0.05, 'forward'), seat(0.25, 0.05, 'forward')] },
+  { kind: 'campfire', name: 'Campfire', emoji: '🔥', cost: 60, minLevel: 2, radius: 0.4, solid: true, seats: [seat(0, 0.95), seat(0.95, 0), seat(0, -0.95), seat(-0.95, 0)] },
+  { kind: 'study_desk', name: 'Study desk', emoji: '📚', cost: 80, minLevel: 3, radius: 0.5, solid: true, seats: [seat(0, 0.55)] },
+  { kind: 'hammock', name: 'Hammock', emoji: '🏝️', cost: 120, minLevel: 3, radius: 0.7, solid: true, seats: [seat(0, 0.15, 'forward')] },
   { kind: 'pond', name: 'Pond', emoji: '🪷', cost: 150, minLevel: 3, radius: 0.8, solid: true },
-  { kind: 'gazebo', name: 'Gazebo', emoji: '⛩️', cost: 200, minLevel: 4, radius: 1.0, solid: true, seats: [[0, 1.2]] },
-  { kind: 'cafe_stall', name: 'Café stall', emoji: '☕', cost: 250, minLevel: 4, radius: 0.8, solid: true, seats: [[-0.4, 1.0], [0.4, 1.0]] },
+  { kind: 'gazebo', name: 'Gazebo', emoji: '⛩️', cost: 200, minLevel: 4, radius: 1.0, solid: true, seats: [seat(-0.35, 0.3), seat(0.35, 0.3)] },
+  { kind: 'cafe_stall', name: 'Café stall', emoji: '☕', cost: 250, minLevel: 4, radius: 0.8, solid: true, seats: [seat(-0.4, 0.75), seat(0.4, 0.75)] },
   { kind: 'cottage', name: 'Cottage', emoji: '🏡', cost: 300, minLevel: 4, radius: 1.1, solid: true },
 ];
 

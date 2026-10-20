@@ -10,6 +10,8 @@ import type { Animal } from '../shared/types';
 export interface Motion {
   /** 0 = standing still, 1 = walking at full speed (smoothed by the caller). */
   speed: number;
+  /** 0 = standing, 1 = sitting down (smoothed by the caller). */
+  sit?: number;
 }
 
 interface Palette {
@@ -289,22 +291,28 @@ export function AnimalModel({
   useFrame(({ clock }, dt) => {
     const t = clock.elapsedTime + offset.current;
     const s = motion.current?.speed ?? 0;
+    const sit = motion.current?.sit ?? 0;
     phase.current += dt * (4 + 9 * s);
     const ph = phase.current;
 
     if (bob.current) {
-      bob.current.position.y = Math.abs(Math.sin(ph)) * 0.05 * s;
+      // Sitting: settle lower and lean back onto the hind legs.
+      bob.current.position.y = Math.abs(Math.sin(ph)) * 0.05 * s - (isTurtle ? 0.06 : 0.12) * sit;
       bob.current.rotation.z = Math.sin(ph) * 0.07 * s;
-      bob.current.rotation.x = 0.06 * s;
+      bob.current.rotation.x = 0.06 * s - (isTurtle ? 0 : 0.3) * sit;
     }
     if (body.current) body.current.scale.y = 1 + Math.sin(t * 2.2) * 0.02 * (1 - s);
     if (head.current) {
-      head.current.rotation.x = Math.sin(t * 1.3) * 0.04 - 0.04 * s;
+      // Lean the head forward again while sitting, so they still look ahead.
+      head.current.rotation.x = Math.sin(t * 1.3) * 0.04 - 0.04 * s + (isTurtle ? 0 : 0.3) * sit;
       head.current.rotation.z = Math.sin(t * 0.6) * 0.08 * (1 - s);
       head.current.position.y = (isTurtle ? 0.44 : 0.78) + Math.sin(t * 2.2) * 0.008;
     }
     legs.current.forEach((leg, i) => {
-      if (leg) leg.rotation.x = Math.sin(ph + LEG_PHASE[i]) * 0.75 * s;
+      if (!leg) return;
+      // Front legs stay planted; hind legs fold forward under the body.
+      const fold = isTurtle ? 0 : i < 2 ? 0.3 : -1.25;
+      leg.rotation.x = Math.sin(ph + LEG_PHASE[i]) * 0.75 * s + fold * sit;
     });
     if (tail.current) tail.current.rotation.y = Math.sin(t * (3 + 9 * s)) * (0.35 + 0.25 * s);
     if (eyes.current) {

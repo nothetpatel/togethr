@@ -2,7 +2,7 @@
 // Browsers only allow sound after the person has interacted with the page,
 // which they will have (tapping to walk, typing a task...).
 
-let ctx: AudioContext | null = null;
+import { audioContext } from './audio';
 
 const MUTED_KEY = 'togethr.muted';
 let muted = (() => {
@@ -30,20 +30,20 @@ export function setMuted(value: boolean): void {
 
 export function chime(): void {
   if (isMuted()) return;
+  const ctx = audioContext();
+  if (!ctx) return;
   try {
-    ctx ??= new AudioContext();
-    if (ctx.state === 'suspended') void ctx.resume();
     const start = ctx.currentTime + 0.02;
     [1046.5, 1318.5].forEach((freq, i) => {
       const t = start + i * 0.18;
-      const osc = ctx!.createOscillator();
-      const gain = ctx!.createGain();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, t);
       gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
-      osc.connect(gain).connect(ctx!.destination);
+      osc.connect(gain).connect(ctx.destination);
       osc.start(t);
       osc.stop(t + 1);
     });

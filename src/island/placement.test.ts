@@ -25,7 +25,7 @@ describe('placement', () => {
   });
 
   it('refuses spots on top of the island’s trees', () => {
-    const t = OBSTACLES[0];
+    const t = OBSTACLES[1]; // [0] is the campfire
     expect(placementProblem('bench', t.x, t.z, [])).toMatch(/tree/);
   });
 

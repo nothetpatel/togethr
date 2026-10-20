@@ -109,6 +109,21 @@ input:focus {
   height: 100%;
 }
 
+/* Golden-hour sky behind the island during breaks (the 3D lights warm up too). */
+.app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#ffd3b0, #ffc1d0 60%, #ffe9f2);
+  opacity: 0;
+  transition: opacity 2.5s ease;
+  pointer-events: none;
+}
+
+.app.golden::before {
+  opacity: 1;
+}
+
 .scene {
   position: absolute;
   inset: 0;
@@ -669,6 +684,23 @@ button.icon:focus-visible {
   opacity: 0.7;
 }
 
+.timer-head button.ambience {
+  display: grid;
+  padding: 2px;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.timer-head button.ambience.on {
+  opacity: 1;
+}
+
+.timer-head button.ambience svg {
+  width: 15px;
+  height: 15px;
+}
+
 .timer-head button.mute svg {
   width: 15px;
   height: 15px;
@@ -1042,4 +1074,70 @@ button.icon:focus-visible {
 /* While building, the dock takes the bottom of the screen. */
 .is-building .todo-panel {
   display: none;
+}
+
+/* Reactions */
+
+.floating-emoji {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 26px;
+  animation: float-up 2.6s ease-out forwards;
+  pointer-events: none;
+}
+
+.tag-stack {
+  position: relative;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1.15);
+  }
+  25% {
+    transform: translateY(-6px) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+}
+
+.reaction-bar {
+  position: absolute;
+  left: 50%;
+  bottom: max(96px, calc(env(safe-area-inset-bottom) + 80px));
+  z-index: 10;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 16px;
+  transform: translateX(-50%);
+}
+
+.reaction-choices {
+  display: flex;
+  gap: 4px;
+}
+
+.reaction-choice {
+  padding: 4px 6px;
+  border: none;
+  background: none;
+  font-size: 24px;
+}
+
+.reaction-bar .close {
+  font-size: 20px;
 }

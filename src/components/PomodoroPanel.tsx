@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { RoomTimer } from '../hooks/useRoomTimer';
 import { isMuted, setMuted } from '../lib/chime';
-import { BellIcon, ResetIcon, SettingsIcon, SkipIcon } from './icons';
+import { AMBIENCES, pauseAmbience, savedAmbience, setAmbience, type Ambience } from '../lib/ambience';
+import { BellIcon, ResetIcon, SettingsIcon, SkipIcon, SpeakerIcon } from './icons';
 import { formatClock } from '../lib/timer';
 import type { TimerPhase } from '../shared/types';
 
@@ -20,6 +21,27 @@ export function PomodoroPanel({ room, isOwner }: { room: RoomTimer; isOwner: boo
   const { timer, remaining, control, error } = room;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [muted, setMutedState] = useState(isMuted);
+  const [ambience, setAmbienceState] = useState<Ambience | null>(savedAmbience);
+
+  // Resume the remembered sound on the first tap (browsers block sound until
+  // then), and stop it when leaving the room.
+  useEffect(() => {
+    const saved = savedAmbience();
+    const resume = () => saved && setAmbience(saved);
+    if (saved) window.addEventListener('pointerdown', resume, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', resume);
+      pauseAmbience();
+    };
+  }, []);
+
+  function nextAmbience() {
+    const i = AMBIENCES.findIndex((a) => a.kind === ambience);
+    const next = i + 1 < AMBIENCES.length ? AMBIENCES[i + 1].kind : null;
+    setAmbience(next);
+    setAmbienceState(next);
+  }
+  const ambienceInfo = AMBIENCES.find((a) => a.kind === ambience);
 
   function toggleMute() {
     setMuted(!muted);
@@ -63,6 +85,15 @@ export function PomodoroPanel({ room, isOwner }: { room: RoomTimer; isOwner: boo
           title={muted ? 'Chime off' : 'Chime on'}
         >
           <BellIcon off={muted} />
+        </button>
+        <button
+          type="button"
+          className={`icon ambience ${ambience ? 'on' : ''}`}
+          onClick={nextAmbience}
+          aria-label={`Background sound: ${ambienceInfo?.label ?? 'off'}`}
+          title={ambienceInfo ? `${ambienceInfo.label} (tap for the next sound)` : 'Background sound: rain, waves or fire'}
+        >
+          {ambienceInfo ? ambienceInfo.emoji : <SpeakerIcon />}
         </button>
       </div>
 

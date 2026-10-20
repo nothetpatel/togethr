@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { IslandScene, type IslandBuild, type IslandOther, type IslandPlayer } from './island/IslandScene';
 import { spawnState, type PlayerState } from './island/LocalPlayer';
-import { useRoomLive } from './hooks/useRoomLive';
+import { useRoomLive, type ReactionMessage } from './hooks/useRoomLive';
 import { useRoomMembers } from './hooks/useRoomMembers';
 import { AvatarCreator } from './components/AvatarCreator';
 import { RoomGate } from './components/RoomGate';
@@ -12,6 +12,7 @@ import { progressOf, TodoPanel } from './components/TodoPanel';
 import { useRoomTodos } from './hooks/useRoomTodos';
 import { CheckinCard } from './components/CheckinCard';
 import { BuildDock, buildProblem, type BuildUi } from './components/BuildDock';
+import { ReactionBar } from './components/ReactionBar';
 import { useRoomIsland } from './hooks/useRoomIsland';
 import { useRoomTimer } from './hooks/useRoomTimer';
 import { useSessionCheckins } from './hooks/useSessionCheckins';
@@ -122,7 +123,19 @@ export function App() {
   }, [myId]);
 
   const { members, refresh: refreshMembers } = useRoomMembers(supabase, roomId);
-  const live = useRoomLive(supabase, roomId, myId, myState, refreshMembers);
+
+  // Emoji floating above animals: sent reactions, plus 🎉 / 🌟 for finished work.
+  const [floating, setFloating] = useState<{ id: number; to: string; emoji: string }[]>([]);
+  const floatId = useRef(0);
+  const float = useCallback((to: string, emoji: string) => {
+    const id = ++floatId.current;
+    setFloating((list) => [...list, { id, to, emoji }]);
+    setTimeout(() => setFloating((list) => list.filter((f) => f.id !== id)), 2600);
+  }, []);
+  const onReaction = useCallback((r: ReactionMessage) => float(r.to, r.emoji), [float]);
+  const [reactTo, setReactTo] = useState<string | null>(null);
+
+  const live = useRoomLive(supabase, roomId, myId, myState, refreshMembers, onReaction);
 
   function avatarSaved(player: Player) {
     setEditingAvatar(false);
@@ -133,6 +146,23 @@ export function App() {
   const todos = useRoomTodos(supabase, roomId, myId);
   const timer = useRoomTimer(supabase, roomId, chime);
   const sessions = useSessionCheckins(supabase, roomId);
+
+  // 🎉 above whoever ticks off a to-do, 🌟 above whoever finished their round's goal.
+  // Everyone sees the same live data, so each screen does this itself.
+  const seenDone = useRef<Map<string, boolean> | null>(null);
+  useEffect(() => {
+    const prev = seenDone.current;
+    const next = new Map<string, boolean>();
+    for (const t of todos.todos) {
+      next.set(t.id, t.done);
+      if (prev && prev.get(t.id) === false && t.done) float(t.player_id, '🎉');
+    }
+    for (const c of sessions.checkins) {
+      next.set(`c:${c.id}`, c.outcome === 'done');
+      if (prev && prev.get(`c:${c.id}`) === false && c.outcome === 'done') float(c.player_id, '🌟');
+    }
+    seenDone.current = roomId ? next : null;
+  }, [todos.todos, sessions.checkins, roomId, float]);
   const island = useRoomIsland(supabase, stage.kind === 'room' ? stage.room : null);
 
   // Build mode: the dock's state, and what the island should show for it.
@@ -151,6 +181,9 @@ export function App() {
       movingId: buildUi.moving?.id,
     };
   }, [buildUi, island.items]);
+
+  // Breaks (running or not) get warm golden-hour light.
+  const onBreak = stage.kind === 'room' && !!timer.timer && timer.timer.phase !== 'focus';
 
   // Everyone's goal for the focus round in progress, shown above their animal.
   const goals = useMemo(() => {
@@ -180,9 +213,10 @@ export function App() {
             nickname: stage.kind === 'room' ? me.nickname : null,
             badge: badges.get(me.id),
             goal: goals.get(me.id),
+            floating: floating.filter((f) => f.to === me.id),
           }
         : null,
-    [me, stage.kind, badges, goals],
+    [me, stage.kind, badges, goals, floating],
   );
   const others = useMemo<IslandOther[]>(
     () =>
@@ -194,12 +228,13 @@ export function App() {
           nickname: m.nickname,
           badge: badges.get(m.player_id),
           goal: goals.get(m.player_id),
+          floating: floating.filter((f) => f.to === m.player_id),
         })),
-    [members, myId, live.onlineIds, badges, goals],
+    [members, myId, live.onlineIds, badges, goals, floating],
   );
 
   return (
-    <div className={`app ${buildUi ? 'is-building' : ''}`}>
+    <div className={`app ${buildUi ? 'is-building' : ''} ${onBreak ? 'golden' : ''}`}>
       <IslandScene
         player={islandPlayer}
         state={myState}
@@ -210,6 +245,13 @@ export function App() {
         build={islandBuild}
         onBuildPoint={(x, z) => setBuildUi((ui) => (ui?.mode === 'place' ? { ...ui, at: [x, z] } : ui))}
         onItemTap={(item) => setBuildUi({ mode: 'selected', item })}
+        focusSession={
+          timer.timer?.phase === 'focus' && timer.timer.status === 'running' ? timer.timer.session_id : null
+        }
+        myId={myId}
+        onlineIds={live.onlineIds}
+        onOtherTap={(id) => setReactTo(id)}
+        golden={onBreak}
       />
 
       {(stage.kind === 'offline' || stage.kind === 'connecting' || stage.kind === 'error') && (
@@ -263,6 +305,18 @@ export function App() {
       )}
 
       {supabase && stage.kind === 'room' && buildUi && <BuildDock ui={buildUi} setUi={setBuildUi} island={island} />}
+
+      {stage.kind === 'room' && !buildUi && reactTo && (
+        <ReactionBar
+          name={members.find((m) => m.player_id === reactTo)?.nickname ?? 'them'}
+          onSend={(emoji) => {
+            live.sendReaction(reactTo, emoji);
+            float(reactTo, emoji);
+            setReactTo(null);
+          }}
+          onClose={() => setReactTo(null)}
+        />
+      )}
 
       {supabase && stage.kind === 'room' && (
         <TodoPanel meId={stage.player.id} members={members} onlineIds={live.onlineIds} todos={todos} />

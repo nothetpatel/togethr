@@ -51,6 +51,7 @@ test('owner creates a room, guest joins by code, both see each other', async ({ 
   await expect(ownerListOnGuest.getByRole('checkbox')).toHaveCount(0);
   await owner.getByRole('checkbox', { name: task }).check();
   await expect(ownerListOnGuest.locator('li.done', { hasText: task })).toBeVisible();
+  await expect(guest.locator('.floating-emoji', { hasText: '🎉' })).toBeVisible(); // cheered on the island
   await expect(ownerListOnGuest).toContainText('1/1');
   await owner.getByRole('button', { name: `Delete ${task}` }).click();
   await expect(ownerListOnGuest.getByText(task)).toHaveCount(0);

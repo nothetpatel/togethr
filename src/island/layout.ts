@@ -35,6 +35,9 @@ export const BUSHES: { at: [number, number]; scale: number }[] = [
 
 export const TREE_SPOTS = TREES.map((t) => t.at);
 
+/** Every island has a campfire in the middle to sit around during focus. */
+export const STARTER_CAMPFIRE = { x: 0, z: 0, radius: 0.4, seatRadius: 1.0, seats: 6 };
+
 export interface Obstacle {
   x: number;
   z: number;
@@ -43,6 +46,7 @@ export interface Obstacle {
 
 /** Circles animals can't walk through: tree trunks and lower branches, bushes. */
 export const OBSTACLES: Obstacle[] = [
+  { x: STARTER_CAMPFIRE.x, z: STARTER_CAMPFIRE.z, r: STARTER_CAMPFIRE.radius },
   ...TREES.map(({ at: [x, z], scale }) => ({ x, z, r: 0.38 * scale })),
   ...BUSHES.map(({ at: [x, z], scale }) => ({ x, z, r: 0.32 * scale })),
 ];

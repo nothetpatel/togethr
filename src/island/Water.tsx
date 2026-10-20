@@ -23,6 +23,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uDeep;
   uniform vec3 uSky;
   uniform float uIslandRadius;
+  uniform float uWarm; // 0 = daylight, 1 = golden hour
   varying vec3 vWorld;
 
   float hash(vec2 p) {
@@ -106,6 +107,9 @@ const fragmentShader = /* glsl */ `
     // through, getting more opaque as the water deepens.
     alpha *= mix(0.2, 1.0, smoothstep(-0.1, 1.8, fromShore));
 
+    // Golden hour: warm the water and its sky reflection.
+    color = mix(color, color * vec3(1.15, 0.92, 0.8) + vec3(0.06, 0.03, 0.0), uWarm * 0.7);
+
     // Colours are passed in already display-ready (see uniforms), so no
     // colour-space conversion here.
     gl_FragColor = vec4(color, alpha);
@@ -117,7 +121,15 @@ function displayColor(hex: string): THREE.Color {
   return new THREE.Color(hex).convertLinearToSRGB();
 }
 
-export function Water({ islandRadius, sunPosition }: { islandRadius: number; sunPosition: [number, number, number] }) {
+export function Water({
+  islandRadius,
+  sunPosition,
+  golden = false,
+}: {
+  islandRadius: number;
+  sunPosition: [number, number, number];
+  golden?: boolean;
+}) {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -135,13 +147,15 @@ export function Water({ islandRadius, sunPosition }: { islandRadius: number; sun
           uDeep: { value: displayColor('#1e6c9e') },
           uSky: { value: displayColor('#bfe6ff') },
           uIslandRadius: { value: islandRadius },
+          uWarm: { value: 0 },
         },
       }),
     [islandRadius, sunPosition],
   );
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, dt) => {
     material.uniforms.uTime.value = clock.elapsedTime;
+    material.uniforms.uWarm.value = THREE.MathUtils.damp(material.uniforms.uWarm.value, golden ? 1 : 0, 0.8, dt);
   });
 
   return (

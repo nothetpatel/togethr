@@ -14,7 +14,7 @@ export function placementProblem(
   const r = CATALOG_BY_KIND[kind].radius;
   if (!isOnGrass(x, z, r)) return 'Needs to be on the grass';
   for (const o of OBSTACLES) {
-    if (Math.hypot(x - o.x, z - o.z) < r + o.r) return 'Too close to a tree';
+    if (Math.hypot(x - o.x, z - o.z) < r + o.r) return 'Too close to a tree or the campfire';
   }
   for (const item of items) {
     if (item.id === ignoreId) continue;

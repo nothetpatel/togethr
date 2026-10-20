@@ -40,3 +40,10 @@ export const BellIcon = ({ off }: { off?: boolean }) => (
     {off && <path d="M4 4l16 16" />}
   </svg>
 );
+
+export const SpeakerIcon = () => (
+  <svg {...common}>
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+    <path d="M16 9.5c1 1.4 1 3.6 0 5M18.8 7c2 2.8 2 7.2 0 10" />
+  </svg>
+);

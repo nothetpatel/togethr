@@ -15,7 +15,19 @@ export interface RoomLive {
   sendPosition: () => void;
   /** Tell the room you changed your name or avatar. */
   announceProfile: () => void;
+  /** Send someone a reaction (❤️, 👋…); everyone in the room sees it. */
+  sendReaction: (to: string, emoji: string) => void;
 }
+
+/** A reaction someone sent, as it arrives over the room channel. */
+export interface ReactionMessage {
+  from: string;
+  to: string;
+  emoji: string;
+}
+
+/** The reactions people can send. */
+export const REACTIONS = ['❤️', '👋', '🎉', '☕', '✨'];
 
 /**
  * Joins the room's private realtime channel: broadcasts your position, keeps
@@ -28,10 +40,14 @@ export function useRoomLive(
   me: RefObject<PlayerState>,
   /** Called when someone else in the room changes their name or avatar. */
   onProfileChange?: () => void,
+  /** Called when someone else sends a reaction. */
+  onReaction?: (r: ReactionMessage) => void,
 ): RoomLive {
   const remotes = useRef(new Map<string, RemoteState>());
   const profileChanged = useRef(onProfileChange);
   profileChanged.current = onProfileChange;
+  const reacted = useRef(onReaction);
+  reacted.current = onReaction;
   const channel = useRef<RealtimeChannel | null>(null);
   const [onlineIds, setOnlineIds] = useState<string[]>([]);
 
@@ -53,6 +69,15 @@ export function useRoomLive(
     channel.current?.send({ type: 'broadcast', event: 'profile', payload: { id: myId } });
   }, [myId]);
 
+  const sendReaction = useCallback(
+    (to: string, emoji: string) => {
+      if (!myId || !REACTIONS.includes(emoji)) return;
+      const payload: ReactionMessage = { from: myId, to, emoji };
+      channel.current?.send({ type: 'broadcast', event: 'react', payload });
+    },
+    [myId],
+  );
+
   useEffect(() => {
     if (!client || !roomId || !myId) return;
     let ch: RealtimeChannel | null = null;
@@ -70,6 +95,11 @@ export function useRoomLive(
         if (m.id !== myId) known.set(m.id, applyUpdate(known.get(m.id), m));
       })
         .on('broadcast', { event: 'profile' }, () => profileChanged.current?.())
+        .on('broadcast', { event: 'react' }, ({ payload }) => {
+          const r = payload as ReactionMessage;
+          // Only the fixed set, so nobody can float arbitrary text over animals.
+          if (REACTIONS.includes(r.emoji)) reacted.current?.(r);
+        })
         .on('presence', { event: 'sync' }, () => {
           const ids = Object.keys(ch!.presenceState());
           setOnlineIds(ids);
@@ -103,5 +133,5 @@ export function useRoomLive(
     };
   }, [client, roomId, myId, sendPosition]);
 
-  return { remotes, onlineIds, sendPosition, announceProfile };
+  return { remotes, onlineIds, sendPosition, announceProfile, sendReaction };
 }
