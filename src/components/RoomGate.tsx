@@ -11,10 +11,12 @@ export function RoomGate({
   client,
   player,
   onEnter,
+  onEditAvatar,
 }: {
   client: SupabaseClient;
   player: Player;
   onEnter: (room: Room) => void;
+  onEditAvatar: () => void;
 }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
@@ -48,6 +50,9 @@ export function RoomGate({
           Hi {player.nickname} {ANIMAL_EMOJI[player.avatar.animal]}
         </h1>
         <p className="muted">Start your own island, or join a friend's with their code.</p>
+        <button type="button" className="link align-start" onClick={onEditAvatar}>
+          Edit avatar
+        </button>
 
         <button className="primary" onClick={() => run('create', () => createRoom(client))} disabled={!!busy}>
           {busy === 'create' ? 'Creating…' : 'Create a room'}

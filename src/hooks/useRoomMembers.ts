@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchMembers, type MemberWithProfile } from '../lib/rooms';
 
 /** Live member list: refetches whenever someone joins or leaves the room. Empty while not in a room. */
-export function useRoomMembers(client: SupabaseClient | null, roomId: string | null): MemberWithProfile[] {
+export function useRoomMembers(
+  client: SupabaseClient | null,
+  roomId: string | null,
+): { members: MemberWithProfile[]; refresh: () => void } {
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
+  const refreshRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!client || !roomId) {
@@ -16,6 +20,7 @@ export function useRoomMembers(client: SupabaseClient | null, roomId: string | n
       fetchMembers(client, roomId)
         .then((m) => !cancelled && setMembers(m))
         .catch((err) => console.error('loading members failed', err));
+    refreshRef.current = refresh;
 
     const channel = client
       .channel(`members:${roomId}`)
@@ -38,9 +43,11 @@ export function useRoomMembers(client: SupabaseClient | null, roomId: string | n
 
     return () => {
       cancelled = true;
+      refreshRef.current = null;
       client.removeChannel(channel);
     };
   }, [client, roomId]);
 
-  return members;
+  const refresh = useCallback(() => refreshRef.current?.(), []);
+  return { members, refresh };
 }

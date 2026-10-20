@@ -4,7 +4,7 @@ import { IslandScene, type IslandOther, type IslandPlayer } from './island/Islan
 import { spawnState, type PlayerState } from './island/LocalPlayer';
 import { useRoomLive } from './hooks/useRoomLive';
 import { useRoomMembers } from './hooks/useRoomMembers';
-import { ProfileSetup } from './components/ProfileSetup';
+import { AvatarCreator } from './components/AvatarCreator';
 import { RoomGate } from './components/RoomGate';
 import { RoomPanel } from './components/RoomPanel';
 import { getPlayerId, supabase } from './lib/supabase';
@@ -32,6 +32,7 @@ async function initialStage(client: SupabaseClient): Promise<Stage> {
 
 export function App() {
   const [stage, setStage] = useState<Stage>(supabase ? { kind: 'connecting' } : { kind: 'offline' });
+  const [editingAvatar, setEditingAvatar] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -70,8 +71,15 @@ export function App() {
     if (myId) myState.current = spawnState(myId);
   }, [myId]);
 
-  const members = useRoomMembers(supabase, roomId);
-  const live = useRoomLive(supabase, roomId, myId, myState);
+  const { members, refresh: refreshMembers } = useRoomMembers(supabase, roomId);
+  const live = useRoomLive(supabase, roomId, myId, myState, refreshMembers);
+
+  function avatarSaved(player: Player) {
+    setEditingAvatar(false);
+    setStage((s) => (s.kind === 'lobby' || s.kind === 'room' ? { ...s, player } : s));
+    refreshMembers();
+    live.announceProfile();
+  }
   const others = useMemo<IslandOther[]>(
     () =>
       members
@@ -103,11 +111,16 @@ export function App() {
       )}
 
       {supabase && stage.kind === 'profile' && (
-        <ProfileSetup client={supabase} onSaved={(player) => setStage({ kind: 'lobby', player })} />
+        <AvatarCreator client={supabase} mode="create" onSaved={(player) => setStage({ kind: 'lobby', player })} />
       )}
 
-      {supabase && stage.kind === 'lobby' && (
-        <RoomGate client={supabase} player={stage.player} onEnter={(room) => enterRoom(stage.player, room)} />
+      {supabase && stage.kind === 'lobby' && !editingAvatar && (
+        <RoomGate
+          client={supabase}
+          player={stage.player}
+          onEnter={(room) => enterRoom(stage.player, room)}
+          onEditAvatar={() => setEditingAvatar(true)}
+        />
       )}
 
       {supabase && stage.kind === 'room' && (
@@ -116,7 +129,18 @@ export function App() {
           me={stage.player}
           members={members}
           onlineIds={live.onlineIds}
+          onEditAvatar={() => setEditingAvatar(true)}
           onLeave={() => leave(stage.player, stage.room)}
+        />
+      )}
+
+      {supabase && me && editingAvatar && (
+        <AvatarCreator
+          client={supabase}
+          mode="edit"
+          initial={me}
+          onSaved={avatarSaved}
+          onCancel={() => setEditingAvatar(false)}
         />
       )}
     </div>

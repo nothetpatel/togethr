@@ -9,12 +9,14 @@ export function RoomPanel({
   me,
   members,
   onlineIds,
+  onEditAvatar,
   onLeave,
 }: {
   room: Room;
   me: Player;
   members: MemberWithProfile[];
   onlineIds: string[];
+  onEditAvatar: () => void;
   onLeave: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -63,9 +65,14 @@ export function RoomPanel({
         ))}
       </ul>
 
-      <button className="link" onClick={onLeave}>
-        {isOwner ? 'Back to lobby' : 'Leave room'}
-      </button>
+      <div className="panel-links">
+        <button className="link" onClick={onEditAvatar}>
+          Edit avatar
+        </button>
+        <button className="link" onClick={onLeave}>
+          {isOwner ? 'Back to lobby' : 'Leave room'}
+        </button>
+      </div>
     </aside>
   );
 }

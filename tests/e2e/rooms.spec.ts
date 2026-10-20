@@ -29,6 +29,19 @@ test('owner creates a room, guest joins by code, both see each other', async ({ 
   await expect(owner.locator('.members li.online')).toHaveCount(2);
   await expect(guest.locator('.members li.online')).toHaveCount(2);
 
+  // The guest restyles their avatar; the owner's list updates live.
+  const guestRowOnOwner = owner.locator('.members li', { hasText: 'E2E Guest' });
+  async function guestBecomes(animal: string, emoji: string) {
+    await guest.getByRole('button', { name: 'Edit avatar' }).click();
+    await guest.getByRole('button', { name: animal }).click();
+    await guest.getByRole('button', { name: 'Mint' }).click();
+    await guest.getByRole('button', { name: 'Save' }).click();
+    await expect(guest.getByRole('button', { name: 'Save' })).toBeHidden();
+    await expect(guestRowOnOwner).toContainText(emoji);
+  }
+  await guestBecomes('Koala', '🐨');
+  await guestBecomes('Panda', '🐼'); // back again, so the next run starts the same
+
   // The owner hears where the guest's animal is...
   const guestOnOwnerScreen = () =>
     owner.evaluate(() => {

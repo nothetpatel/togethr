@@ -1,6 +1,6 @@
 import type { Animal } from './types';
 
-// Stand-ins until the 3D avatar creator (phase 5) shows real models.
+// Emoji stand in for the 3D animals in lists and buttons.
 export const ANIMAL_EMOJI: Record<Animal, string> = {
   dog: '🐶',
   cat: '🐱',
@@ -16,3 +16,15 @@ export const ANIMAL_LABEL: Record<Animal, string> = {
   koala: 'Koala',
   turtle: 'Turtle',
 };
+
+/** Scarf colours on offer in the avatar creator. */
+export const AVATAR_COLORS: { name: string; hex: string }[] = [
+  { name: 'Pink', hex: '#ff8fab' },
+  { name: 'Peach', hex: '#ffb38a' },
+  { name: 'Butter', hex: '#ffd166' },
+  { name: 'Mint', hex: '#7fd8be' },
+  { name: 'Sky', hex: '#7cc6fe' },
+  { name: 'Lavender', hex: '#b8a1ff' },
+  { name: 'Red', hex: '#e63946' },
+  { name: 'Navy', hex: '#3d5a80' },
+];

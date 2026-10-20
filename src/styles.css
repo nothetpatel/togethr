@@ -145,6 +145,15 @@ input:focus {
   white-space: nowrap;
 }
 
+.align-start {
+  align-self: flex-start;
+}
+
+.panel-links {
+  display: flex;
+  justify-content: space-between;
+}
+
 /* Floating name above your animal */
 
 .name-tag {
@@ -232,6 +241,48 @@ input:focus {
 .animal-chip.selected {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.avatar-creator {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.avatar-preview {
+  width: 100%;
+  height: 180px !important;
+  margin: -4px 0;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 70%, #fff6fa 0%, #f1e8fb 70%);
+  cursor: grab;
+}
+
+.color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.color-picker legend {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.swatch {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.swatch.selected {
+  box-shadow: 0 0 0 2px var(--ink);
 }
 
 .divider {

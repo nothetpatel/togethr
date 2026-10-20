@@ -13,6 +13,8 @@ export interface RoomLive {
   onlineIds: string[];
   /** Tell the room where you are now, e.g. right after a tap. */
   sendPosition: () => void;
+  /** Tell the room you changed your name or avatar. */
+  announceProfile: () => void;
 }
 
 /**
@@ -24,8 +26,12 @@ export function useRoomLive(
   roomId: string | null,
   myId: string | null,
   me: RefObject<PlayerState>,
+  /** Called when someone else in the room changes their name or avatar. */
+  onProfileChange?: () => void,
 ): RoomLive {
   const remotes = useRef(new Map<string, RemoteState>());
+  const profileChanged = useRef(onProfileChange);
+  profileChanged.current = onProfileChange;
   const channel = useRef<RealtimeChannel | null>(null);
   const [onlineIds, setOnlineIds] = useState<string[]>([]);
 
@@ -43,6 +49,10 @@ export function useRoomLive(
     channel.current.send({ type: 'broadcast', event: 'pos', payload });
   }, [me, myId]);
 
+  const announceProfile = useCallback(() => {
+    channel.current?.send({ type: 'broadcast', event: 'profile', payload: { id: myId } });
+  }, [myId]);
+
   useEffect(() => {
     if (!client || !roomId || !myId) return;
     let ch: RealtimeChannel | null = null;
@@ -59,6 +69,7 @@ export function useRoomLive(
         const m = payload as PositionMessage;
         if (m.id !== myId) known.set(m.id, applyUpdate(known.get(m.id), m));
       })
+        .on('broadcast', { event: 'profile' }, () => profileChanged.current?.())
         .on('presence', { event: 'sync' }, () => {
           const ids = Object.keys(ch!.presenceState());
           setOnlineIds(ids);
@@ -92,5 +103,5 @@ export function useRoomLive(
     };
   }, [client, roomId, myId, sendPosition]);
 
-  return { remotes, onlineIds, sendPosition };
+  return { remotes, onlineIds, sendPosition, announceProfile };
 }
