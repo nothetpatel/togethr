@@ -15,6 +15,8 @@ export async function lobbyPlayer(browser: Browser, name: string, animal: string
   mkdirSync(AUTH_DIR, { recursive: true });
   const statePath = `${AUTH_DIR}/${name.replace(/\W+/g, '-').toLowerCase()}.json`;
   const context = await browser.newContext(existsSync(statePath) ? { storageState: statePath } : {});
+  // Test players have seen the first-room tips (they'd sit over the island).
+  await context.addInitScript(() => localStorage.setItem('togethr.tipsSeen', '1'));
   const page = await context.newPage();
   page.on('console', (msg) => {
     if (msg.type() === 'error') console.log(`[${name}] ${msg.text()}`);

@@ -22,9 +22,11 @@ test('a finished round pays seeds into the jar, which buy things to build', asyn
   await owner.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(guest.getByTestId('timer-clock')).toHaveText('01:00');
 
-  // Goals: the owner picks one of their to-dos, the guest types one.
   await owner.getByLabel('New task').fill('Read chapter 4');
   await owner.getByLabel('New task').press('Enter');
+  await owner.getByRole('button', { name: 'Start' }).click();
+
+  // Goals (once the round is running): the owner picks a to-do, the guest types one.
   await owner.getByRole('button', { name: 'Read chapter 4', exact: true }).click();
   await expect(owner.getByTestId('my-goal')).toContainText('Read chapter 4');
   await guest.getByLabel('Goal for this round', { exact: true }).fill('Flashcards');
@@ -33,8 +35,6 @@ test('a finished round pays seeds into the jar, which buy things to build', asyn
   // Each sees the other's goal above their animal.
   await expect(owner.locator('.goal-bubble', { hasText: 'Flashcards' })).toBeVisible();
   await expect(guest.locator('.goal-bubble', { hasText: 'Read chapter 4' })).toBeVisible();
-
-  await owner.getByRole('button', { name: 'Start' }).click();
 
   // The round ends for both: a break starts and each is asked how it went.
   for (const page of [owner, guest]) {

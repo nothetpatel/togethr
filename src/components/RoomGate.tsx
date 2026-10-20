@@ -52,7 +52,27 @@ export function RoomGate({
         <h1>
           Hi {player.nickname} {ANIMAL_EMOJI[player.avatar.animal]}
         </h1>
-        <p className="muted">Start your own island, or join a friend's with their code.</p>
+        <p className="muted">Study side by side, and grow an island together.</p>
+        <ol className="loop-steps" aria-label="How it works">
+          <li>
+            <span className="loop-icon">🎯</span>
+            <span>
+              <strong>Set a goal</strong> for each focus round
+            </span>
+          </li>
+          <li>
+            <span className="loop-icon">⏱️</span>
+            <span>
+              <strong>Focus together</strong> round the campfire
+            </span>
+          </li>
+          <li>
+            <span className="loop-icon">🌱</span>
+            <span>
+              <strong>Earn seeds</strong> to build your island
+            </span>
+          </li>
+        </ol>
         <button type="button" className="link align-start" onClick={onEditAvatar}>
           Edit avatar
         </button>

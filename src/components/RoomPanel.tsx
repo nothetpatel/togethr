@@ -72,6 +72,8 @@ export function RoomPanel({
   onLeave: () => void;
 }) {
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  // On phones the details fold away behind "More" to keep the island visible.
+  const [expanded, setExpanded] = useState(false);
   const isOwner = room.owner_id === me.id;
 
   async function copy(what: 'code' | 'link') {
@@ -86,7 +88,7 @@ export function RoomPanel({
   }
 
   return (
-    <aside className="card room-panel">
+    <aside className={`card room-panel ${expanded ? 'expanded' : ''}`}>
       <div className="room-code-row">
         <div>
           <p className="muted small">Room code</p>
@@ -95,41 +97,47 @@ export function RoomPanel({
           </p>
         </div>
         <button onClick={() => copy('code')}>{copied === 'code' ? 'Copied!' : 'Copy'}</button>
+        <button className="room-more" onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
+          {expanded ? 'Less' : 'More'}
+        </button>
       </div>
-      <button className="link align-start" onClick={() => copy('link')}>
-        {copied === 'link' ? 'Invite link copied!' : 'Copy invite link'}
-      </button>
 
       <SeedJar island={island} onBuild={onBuild} />
 
-      <p className="muted small members-heading">
-        Here now · <span data-testid="member-count">{members.length}</span>
-      </p>
-      <ul className="members">
-        {members.map((m) => (
-          <li key={m.player_id} className={onlineIds.includes(m.player_id) ? 'online' : 'away'}>
-            <span className="presence" title={onlineIds.includes(m.player_id) ? 'Online' : 'Away'} />
-            <span className="emoji">{ANIMAL_EMOJI[m.avatar.animal] ?? '🐾'}</span>
-            <span className="name">
-              {m.nickname}
-              {m.player_id === me.id && <span className="muted"> (you)</span>}
-            </span>
-            {m.player_id === room.owner_id && (
-              <span className="badge" title="Room owner">
-                👑 owner
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
+      <div className="room-details">
+        <button className="link align-start" onClick={() => copy('link')}>
+          {copied === 'link' ? 'Invite link copied!' : 'Copy invite link'}
+        </button>
 
-      <div className="panel-links">
-        <button className="link" onClick={onEditAvatar}>
-          Edit avatar
-        </button>
-        <button className="link" onClick={onLeave}>
-          {isOwner ? 'Back to lobby' : 'Leave room'}
-        </button>
+        <p className="muted small members-heading">
+          Here now · <span data-testid="member-count">{members.length}</span>
+        </p>
+        <ul className="members">
+          {members.map((m) => (
+            <li key={m.player_id} className={onlineIds.includes(m.player_id) ? 'online' : 'away'}>
+              <span className="presence" title={onlineIds.includes(m.player_id) ? 'Online' : 'Away'} />
+              <span className="emoji">{ANIMAL_EMOJI[m.avatar.animal] ?? '🐾'}</span>
+              <span className="name">
+                {m.nickname}
+                {m.player_id === me.id && <span className="muted"> (you)</span>}
+              </span>
+              {m.player_id === room.owner_id && (
+                <span className="badge" title="Room owner">
+                  👑 owner
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        <div className="panel-links">
+          <button className="link" onClick={onEditAvatar}>
+            Edit avatar
+          </button>
+          <button className="link" onClick={onLeave}>
+            {isOwner ? 'Back to lobby' : 'Leave room'}
+          </button>
+        </div>
       </div>
     </aside>
   );

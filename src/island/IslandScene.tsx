@@ -14,6 +14,8 @@ import { PlacedItems, PlacementGhost } from './PlacedItems';
 import { obstaclesWith } from './placement';
 import { idSeed, ItemModel } from './ItemModels';
 import { allSeats, assignSeats } from './seats';
+import { SHOWCASE_ITEMS } from './showcase';
+import { ShowcaseAnimals } from './ShowcaseAnimals';
 import type { RemoteState } from './remote';
 import { RemotePlayer } from './RemotePlayer';
 import { isWebKit } from './device';
@@ -66,6 +68,12 @@ export interface IslandOther {
 }
 
 const SHOW_GALLERY = import.meta.env.DEV && new URLSearchParams(location.search).has('gallery');
+/**
+ * ?showcase: a grown island with friends round the fire, for the link-preview
+ * image. Works in production builds too (it's only a picture; no data), which
+ * matters because React's development double-mounting can drop a name tag.
+ */
+export const SHOW_SHOWCASE = new URLSearchParams(location.search).has('showcase');
 
 /** Taps that move less than this many pixels count as taps, not camera drags. */
 const TAP_SLOP = 8;
@@ -74,7 +82,7 @@ const TAP_SLOP = 8;
 const SHADOW_MODE = isWebKit() ? ('basic' as const) : true;
 
 /** Distance from the camera to what it looks at, on a landscape screen. */
-const BASE_DISTANCE = Math.hypot(9, 9, 11);
+const BASE_DISTANCE = SHOW_SHOWCASE ? 11.5 : Math.hypot(9, 9, 11);
 
 const SUN_POSITION: [number, number, number] = [6, 10, 4];
 
@@ -187,7 +195,7 @@ export function IslandScene({
   onMove,
   others = [],
   remotes,
-  items = [],
+  items: roomItems = [],
   build = null,
   onBuildPoint,
   onItemTap,
@@ -222,6 +230,7 @@ export function IslandScene({
   /** Warm golden-hour light (during breaks). */
   golden?: boolean;
 }) {
+  const items = SHOW_SHOWCASE ? SHOWCASE_ITEMS : roomItems;
   const obstacles = useMemo(() => obstaclesWith(items), [items]);
   const seats = useMemo(() => allSeats(items), [items]);
 
@@ -290,7 +299,8 @@ export function IslandScene({
       ))}
       <Flowers avoid={TREE_SPOTS} />
       {SHOW_GALLERY && <AnimalGallery />}
-      {player && !SHOW_GALLERY && (
+      {SHOW_SHOWCASE && <ShowcaseAnimals />}
+      {player && !SHOW_GALLERY && !SHOW_SHOWCASE && (
         <>
           <LocalPlayer
             avatar={player.avatar}

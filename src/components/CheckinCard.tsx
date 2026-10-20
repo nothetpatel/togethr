@@ -71,7 +71,8 @@ export function CheckinCard({
     );
   }
 
-  if (!timer || timer.phase !== 'focus') return null;
+  // Goals are for a round that's under way (before Start it's just clutter).
+  if (!timer || timer.phase !== 'focus' || timer.status === 'idle') return null;
 
   if (current && !editing) {
     return (

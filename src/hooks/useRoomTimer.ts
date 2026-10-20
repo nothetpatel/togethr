@@ -49,9 +49,10 @@ export function useRoomTimer(
     setTimer((cur) => (cur && Date.parse(cur.updated_at) > Date.parse(row.updated_at) ? cur : row));
   }, []);
 
-  // Clock offset: median of three samples, refreshed every few minutes.
+  // Clock offset: median of three samples, refreshed every few minutes. Only
+  // in a room: by then you're signed in, which the server function requires.
   useEffect(() => {
-    if (!client) return;
+    if (!client || !roomId) return;
     let cancelled = false;
     const measure = async () => {
       try {
@@ -69,7 +70,7 @@ export function useRoomTimer(
       cancelled = true;
       clearInterval(every);
     };
-  }, [client]);
+  }, [client, roomId]);
 
   // Load the row and follow changes.
   useEffect(() => {

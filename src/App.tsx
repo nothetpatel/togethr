@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { IslandScene, type IslandBuild, type IslandOther, type IslandPlayer } from './island/IslandScene';
+import {
+  IslandScene,
+  SHOW_SHOWCASE,
+  type IslandBuild,
+  type IslandOther,
+  type IslandPlayer,
+} from './island/IslandScene';
 import { spawnState, type PlayerState } from './island/LocalPlayer';
 import { useRoomLive, type ReactionMessage } from './hooks/useRoomLive';
 import { useRoomMembers } from './hooks/useRoomMembers';
@@ -13,6 +19,7 @@ import { useRoomTodos } from './hooks/useRoomTodos';
 import { CheckinCard } from './components/CheckinCard';
 import { BuildDock, buildProblem, type BuildUi } from './components/BuildDock';
 import { ReactionBar } from './components/ReactionBar';
+import { RoomTips } from './components/RoomTips';
 import { useRoomIsland } from './hooks/useRoomIsland';
 import { useRoomTimer } from './hooks/useRoomTimer';
 import { useSessionCheckins } from './hooks/useSessionCheckins';
@@ -233,6 +240,18 @@ export function App() {
     [members, myId, live.onlineIds, badges, goals, floating],
   );
 
+  if (SHOW_SHOWCASE) {
+    return (
+      <div className="app">
+        <IslandScene player={null} state={myState} />
+        <div className="card showcase-card">
+          <h1>Togethr 🌱</h1>
+          <p className="muted">Study side by side. Grow an island together.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`app ${buildUi ? 'is-building' : ''} ${onBreak ? 'golden' : ''}`}>
       <IslandScene
@@ -305,6 +324,8 @@ export function App() {
       )}
 
       {supabase && stage.kind === 'room' && buildUi && <BuildDock ui={buildUi} setUi={setBuildUi} island={island} />}
+
+      {stage.kind === 'room' && !buildUi && !reactTo && !editingAvatar && <RoomTips />}
 
       {stage.kind === 'room' && !buildUi && reactTo && (
         <ReactionBar

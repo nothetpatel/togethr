@@ -113,7 +113,7 @@ export function scatterFlowers(avoid: [number, number][], seed = 7): Flower[] {
 
   // Patches of a single kind, like little garden beds.
   const kinds: Kind[] = ['tulip', 'rose', 'daisy'];
-  const patches = 15;
+  const patches = 7;
   for (let p = 0; p < patches; p++) {
     const angle = (p / patches) * Math.PI * 2 + rand() * 0.3;
     const radius = 2.6 + rand() * 2.8;
@@ -124,7 +124,7 @@ export function scatterFlowers(avoid: [number, number][], seed = 7): Flower[] {
   }
 
   // A sprinkle of daisies along the edge of the grass.
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 20; i++) {
     const angle = rand() * Math.PI * 2;
     const radius = 5.0 + rand() * 1.0;
     add('daisy', Math.cos(angle) * radius, Math.sin(angle) * radius);
