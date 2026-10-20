@@ -7,6 +7,7 @@ export const ANIMAL_EMOJI: Record<Animal, string> = {
   panda: '🐼',
   koala: '🐨',
   turtle: '🐢',
+  duck: '🦆',
 };
 
 export const ANIMAL_LABEL: Record<Animal, string> = {
@@ -15,6 +16,7 @@ export const ANIMAL_LABEL: Record<Animal, string> = {
   panda: 'Panda',
   koala: 'Koala',
   turtle: 'Turtle',
+  duck: 'Duck',
 };
 
 /** Scarf colours on offer in the avatar creator. */

@@ -3,7 +3,7 @@ import type { ItemKind } from './catalog';
 // Shapes shared by the client and the Supabase schema
 // (supabase/migrations/0001_init.sql). Keep the two in sync.
 
-export const ANIMALS = ['dog', 'cat', 'panda', 'koala', 'turtle'] as const;
+export const ANIMALS = ['dog', 'cat', 'panda', 'koala', 'turtle', 'duck'] as const;
 export type Animal = (typeof ANIMALS)[number];
 
 export interface Avatar {

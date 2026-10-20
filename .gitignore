@@ -6,3 +6,9 @@ dist
 test-results
 playwright-report
 tests/e2e/.auth
+
+# Uncompressed Blender exports (npm run models compresses them)
+public/models/animals/*.raw.glb
+
+# Python caches (Blender scripts)
+__pycache__/
