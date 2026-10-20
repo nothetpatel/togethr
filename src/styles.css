@@ -653,6 +653,11 @@ button.icon:focus-visible {
   color: #3f9e7a;
 }
 
+.timer-head button.mute {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
 .timer-dots {
   display: inline-flex;
   gap: 4px;
@@ -756,7 +761,7 @@ button.icon:focus-visible {
 
   /* The to-do sheet lists everyone, so keep the room card short. */
   .room-panel .members,
-  .room-panel .room-code-row + p {
+  .room-panel .members-heading {
     display: none;
   }
 

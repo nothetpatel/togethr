@@ -125,3 +125,24 @@ test('owner creates a room, guest joins by code, both see each other', async ({ 
   await saveOwner();
   await saveGuest();
 });
+
+test('an invite link takes a friend straight into the room', async ({ browser }) => {
+  const { page: owner } = await lobbyPlayer(browser, 'E2E Owner', 'Cat');
+  const { page: guest, save: saveGuest } = await lobbyPlayer(browser, 'E2E Guest', 'Panda');
+
+  await owner.getByRole('button', { name: 'Create a room' }).click();
+  await expect(owner.getByTestId('room-code')).toHaveText(/^[A-HJ-NP-Z]{4}$/);
+  const code = (await owner.getByTestId('room-code').textContent())!.trim();
+
+  await guest.goto(`/?join=${code.toLowerCase()}`);
+  await expect(guest.getByTestId('room-code')).toHaveText(code);
+  await expect(owner.getByTestId('member-count')).toHaveText('2');
+  expect(new URL(guest.url()).search).toBe(''); // the code is cleared from the address bar
+
+  // A bad link explains itself and leaves you in the lobby.
+  await guest.getByRole('button', { name: 'Leave room' }).click();
+  await expect(owner.getByTestId('member-count')).toHaveText('1'); // leaving finished
+  await guest.goto('/?join=ZZZZ');
+  await expect(guest.getByText(/Couldn't join ZZZZ/)).toBeVisible();
+  await saveGuest();
+});

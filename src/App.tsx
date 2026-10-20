@@ -11,7 +11,8 @@ import { RoomPanel } from './components/RoomPanel';
 import { progressOf, TodoPanel } from './components/TodoPanel';
 import { useRoomTodos } from './hooks/useRoomTodos';
 import { getPlayerId, supabase } from './lib/supabase';
-import { errorMessage, getMyPlayer, getRoom, lastRoomId, leaveRoom, rememberRoom } from './lib/rooms';
+import { errorMessage, getMyPlayer, getRoom, joinRoom, lastRoomId, leaveRoom, rememberRoom } from './lib/rooms';
+import { isValidRoomCode, normalizeRoomCode } from './lib/roomCode';
 import type { Player, Room } from './shared/types';
 
 type Stage =
@@ -21,6 +22,23 @@ type Stage =
   | { kind: 'profile' }
   | { kind: 'lobby'; player: Player }
   | { kind: 'room'; player: Player; room: Room };
+
+/**
+ * Reads an invite link's room code (`?join=ABCD`) once, at startup, and
+ * removes it from the address bar so a refresh doesn't rejoin.
+ */
+function takeInviteCode(): string | null {
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('join');
+  if (!raw) return null;
+  params.delete('join');
+  const query = params.toString();
+  history.replaceState(null, '', location.pathname + (query ? `?${query}` : '') + location.hash);
+  const code = normalizeRoomCode(raw);
+  return isValidRoomCode(code) ? code : null;
+}
+
+const INVITE_CODE = takeInviteCode();
 
 async function initialStage(client: SupabaseClient): Promise<Stage> {
   const player = await getMyPlayer(client, await getPlayerId(client));
@@ -36,6 +54,8 @@ async function initialStage(client: SupabaseClient): Promise<Stage> {
 export function App() {
   const [stage, setStage] = useState<Stage>(supabase ? { kind: 'connecting' } : { kind: 'offline' });
   const [editingAvatar, setEditingAvatar] = useState(false);
+  const [inviteCode, setInviteCode] = useState(INVITE_CODE);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -55,6 +75,24 @@ export function App() {
     rememberRoom(room.id);
     setStage({ kind: 'room', player, room });
   }
+
+  // Follow an invite link once you have a profile (right away for returning
+  // players, after making an avatar for new ones).
+  useEffect(() => {
+    if (!supabase || !inviteCode || (stage.kind !== 'lobby' && stage.kind !== 'room')) return;
+    setInviteCode(null);
+    if (stage.kind === 'room' && stage.room.code === inviteCode) return;
+    const player = stage.player;
+    joinRoom(supabase, inviteCode)
+      .then((room) => enterRoom(player, room))
+      .catch((err) => {
+        setInviteError(`Couldn't join ${inviteCode}: ${errorMessage(err)}`);
+        if (stage.kind === 'room') {
+          rememberRoom(null);
+          setStage({ kind: 'lobby', player });
+        }
+      });
+  }, [stage, inviteCode]);
 
   function leave(player: Player, room: Room) {
     // Owners keep their membership so the room stays theirs to come back to.
@@ -149,6 +187,7 @@ export function App() {
           player={stage.player}
           onEnter={(room) => enterRoom(stage.player, room)}
           onEditAvatar={() => setEditingAvatar(true)}
+          notice={inviteError}
         />
       )}
 

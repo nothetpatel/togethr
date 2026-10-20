@@ -4,7 +4,32 @@
 
 let ctx: AudioContext | null = null;
 
+const MUTED_KEY = 'togethr.muted';
+let muted = (() => {
+  try {
+    return localStorage.getItem(MUTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+})();
+
+/** Whether this browser has the chime turned off (remembered between visits). */
+export function isMuted(): boolean {
+  return muted;
+}
+
+export function setMuted(value: boolean): void {
+  muted = value;
+  try {
+    if (value) localStorage.setItem(MUTED_KEY, '1');
+    else localStorage.removeItem(MUTED_KEY);
+  } catch {
+    // storage blocked; the choice lasts until the page reloads
+  }
+}
+
 export function chime(): void {
+  if (isMuted()) return;
   try {
     ctx ??= new AudioContext();
     if (ctx.state === 'suspended') void ctx.resume();

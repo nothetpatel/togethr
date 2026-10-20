@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useRoomTimer, type RoomTimer } from '../hooks/useRoomTimer';
-import { chime } from '../lib/chime';
+import { chime, isMuted, setMuted } from '../lib/chime';
 import { formatClock } from '../lib/timer';
 import type { TimerPhase } from '../shared/types';
 
@@ -28,6 +28,12 @@ export function PomodoroPanel({
   const room = useRoomTimer(client, roomId, chime);
   const { timer, remaining, control, error } = room;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [muted, setMutedState] = useState(isMuted);
+
+  function toggleMute() {
+    setMuted(!muted);
+    setMutedState(!muted);
+  }
 
   const clock = formatClock(remaining);
   const label = timer ? PHASE_LABEL[timer.phase as TimerPhase] : '';
@@ -57,6 +63,16 @@ export function PomodoroPanel({
             <span key={i} className={i < done ? 'on' : ''} />
           ))}
         </span>
+        <button
+          type="button"
+          className="icon mute"
+          onClick={toggleMute}
+          aria-label={muted ? 'Turn chime on' : 'Turn chime off'}
+          aria-pressed={muted}
+          title={muted ? 'Chime off' : 'Chime on'}
+        >
+          {muted ? '🔕' : '🔔'}
+        </button>
       </div>
 
       <p className="timer-clock" data-testid="timer-clock" aria-live="off">

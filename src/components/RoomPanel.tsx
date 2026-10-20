@@ -19,14 +19,15 @@ export function RoomPanel({
   onEditAvatar: () => void;
   onLeave: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const isOwner = room.owner_id === me.id;
 
-  async function copyCode() {
+  async function copy(what: 'code' | 'link') {
+    const text = what === 'code' ? room.code : `${location.origin}/?join=${room.code}`;
     try {
-      await navigator.clipboard.writeText(room.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 1500);
     } catch {
       // clipboard blocked; the code is on screen to read out anyway
     }
@@ -41,10 +42,13 @@ export function RoomPanel({
             {room.code}
           </p>
         </div>
-        <button onClick={copyCode}>{copied ? 'Copied!' : 'Copy'}</button>
+        <button onClick={() => copy('code')}>{copied === 'code' ? 'Copied!' : 'Copy'}</button>
       </div>
+      <button className="link align-start" onClick={() => copy('link')}>
+        {copied === 'link' ? 'Invite link copied!' : 'Copy invite link'}
+      </button>
 
-      <p className="muted small">
+      <p className="muted small members-heading">
         Here now · <span data-testid="member-count">{members.length}</span>
       </p>
       <ul className="members">

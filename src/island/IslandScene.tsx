@@ -1,5 +1,6 @@
-import { useMemo, type RefObject } from 'react';
-import { Canvas, type ThreeEvent } from '@react-three/fiber';
+import { useEffect, useMemo, type RefObject } from 'react';
+import * as THREE from 'three';
+import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { Avatar } from '../shared/types';
 import { AnimalGallery } from './AnimalGallery';
@@ -37,6 +38,9 @@ const SHOW_GALLERY = import.meta.env.DEV && new URLSearchParams(location.search)
 /** Taps that move less than this many pixels count as taps, not camera drags. */
 const TAP_SLOP = 8;
 
+/** Distance from the camera to what it looks at, on a landscape screen. */
+const BASE_DISTANCE = Math.hypot(9, 9, 11);
+
 const SUN_POSITION: [number, number, number] = [6, 10, 4];
 
 type Vec3 = [number, number, number];
@@ -44,6 +48,29 @@ type Vec3 = [number, number, number];
 /** A ground point, sunk slightly so trunks and bases don't float on slopes. */
 function ground(x: number, z: number, sink = 0.03): Vec3 {
   return [x, terrainHeight(x, z) - sink, z];
+}
+
+/**
+ * Tall phone screens crop the island at the desktop framing, so widen the view
+ * and pull back a little as the screen gets narrower. Only reacts to shape
+ * changes (rotating the phone), not to the person zooming.
+ */
+function FitCameraToScreen() {
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const controls = useThree((s) => s.controls) as unknown as { target: THREE.Vector3 } | null;
+  const aspect = useThree((s) => s.size.width / s.size.height);
+  const portrait = Math.round(THREE.MathUtils.clamp((1 - aspect) / 0.55, 0, 1) * 10) / 10;
+
+  useEffect(() => {
+    camera.fov = 40 + 16 * portrait;
+    camera.updateProjectionMatrix();
+    const target = controls?.target ?? new THREE.Vector3();
+    const offset = camera.position.clone().sub(target);
+    offset.setLength(BASE_DISTANCE * (1 + 0.15 * portrait));
+    camera.position.copy(target).add(offset);
+  }, [camera, controls, portrait]);
+
+  return null;
 }
 
 function Terrain({ onTap }: { onTap: (x: number, z: number) => void }) {
@@ -126,11 +153,12 @@ export function IslandScene({
           <RemotePlayer key={o.id} id={o.id} avatar={o.avatar} nickname={o.nickname} badge={o.badge} remotes={remotes} />
         ))}
 
+      <FitCameraToScreen />
       <OrbitControls
         makeDefault
         enablePan={false}
         minDistance={8}
-        maxDistance={22}
+        maxDistance={24}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 2.6}
       />
